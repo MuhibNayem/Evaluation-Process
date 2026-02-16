@@ -15,10 +15,14 @@ import java.util.Properties;
 
 /**
  * Configuration for database connection pooling and JPA.
- * Optimizes database performance with connection pooling and query optimization.
+ * Optimizes database performance with connection pooling and query
+ * optimization.
  */
 @Configuration
-@EnableJpaRepositories(basePackages = "com.evaluationservice.infrastructure.repository")
+@EnableJpaRepositories(basePackages = {
+        "com.evaluationservice.infrastructure.repository",
+        "com.evaluationservice.infrastructure.persistence"
+})
 public class DatabaseConfig {
 
     @Value("${spring.datasource.url}")
@@ -37,7 +41,7 @@ public class DatabaseConfig {
         config.setUsername(username);
         config.setPassword(password);
         config.setDriverClassName("org.postgresql.Driver");
-        
+
         // Performance optimizations
         config.setMaximumPoolSize(20);
         config.setMinimumIdle(5);
@@ -46,7 +50,7 @@ public class DatabaseConfig {
         config.setMaxLifetime(1800000);
         config.setLeakDetectionThreshold(60000);
         config.setConnectionTestQuery("SELECT 1");
-        
+
         return new HikariDataSource(config);
     }
 
@@ -54,7 +58,9 @@ public class DatabaseConfig {
     public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource());
-        em.setPackagesToScan("com.evaluationservice.infrastructure.entity");
+        em.setPackagesToScan(
+                "com.evaluationservice.infrastructure.entity",
+                "com.evaluationservice.domain.entity");
 
         HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
         em.setJpaVendorAdapter(vendorAdapter);
@@ -65,7 +71,7 @@ public class DatabaseConfig {
         properties.setProperty("hibernate.show_sql", "false");
         properties.setProperty("hibernate.format_sql", "true");
         properties.setProperty("hibernate.jdbc.time_zone", "UTC");
-        
+
         // Performance optimizations
         properties.setProperty("hibernate.jdbc.batch_size", "20");
         properties.setProperty("hibernate.order_inserts", "true");
@@ -73,7 +79,7 @@ public class DatabaseConfig {
         properties.setProperty("hibernate.jdbc.batch_versioned_data", "true");
         properties.setProperty("hibernate.generate_statistics", "false");
         properties.setProperty("hibernate.connection.provider_disables_autocommit", "true");
-        
+
         em.setJpaProperties(properties);
 
         return em;

@@ -73,6 +73,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CLOUD_CONFIG_ENABLED=false
       - DB_PASSWORD=${DB_PASSWORD:-password}
       - JWT_SECRET=${JWT_SECRET:-mySecretKeyForEvaluationService}
     depends_on:

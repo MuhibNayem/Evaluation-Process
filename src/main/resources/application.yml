@@ -21,6 +21,8 @@ management:
 
 # Spring Data JPA
 spring:
+  config:
+    import: "optional:configserver:"
   application:
     name: evaluation-service
   cloud:
