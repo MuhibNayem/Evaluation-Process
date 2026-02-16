@@ -21,6 +21,11 @@ management:
 
 # Spring Data JPA
 spring:
+  application:
+    name: evaluation-service
+  cloud:
+    config:
+      enabled: false
   jpa:
     hibernate:
       ddl-auto: validate

@@ -1,11 +1,11 @@
 # Use official OpenJDK runtime as base image
-FROM openjdk:25-jdk-slim
+FROM amazoncorretto:25-alpine-jdk
 
 # Set working directory
 WORKDIR /app
 
 # Copy the JAR file into the container
-COPY target/evaluation-service-1.0.0.jar app.jar
+COPY build/libs/evaluation-service-1.0.0.jar app.jar
 
 # Expose port 8080
 EXPOSE 8080
