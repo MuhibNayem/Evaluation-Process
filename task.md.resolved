@@ -1,0 +1,35 @@
+# Dynamic System Settings Implementation
+
+## Domain Layer
+- [ ] `SystemSettingCategory` enum
+- [ ] `SystemSetting` entity
+- [ ] `CampaignSettingOverride` entity
+
+## Application Layer — Ports
+- [ ] `SystemSettingsPersistencePort` (outbound)
+- [ ] `CampaignSettingsPersistencePort` (outbound)
+- [ ] `SystemSettingsUseCase` (inbound)
+
+## Application Layer — Services
+- [ ] `SettingsResolverService` (3-level fallback)
+- [ ] `SystemSettingsService` (CRUD)
+- [ ] Update [ScoringService](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/service/ScoringService.java#23-86) to use resolver
+
+## Infrastructure Layer
+- [ ] `SystemSettingEntity` JPA entity
+- [ ] `CampaignSettingOverrideEntity` JPA entity
+- [ ] `SystemSettingsRepository` JPA
+- [ ] `CampaignSettingsRepository` JPA
+- [ ] `SystemSettingsAdapter` (implements both ports)
+- [ ] `V2__system_settings.sql` Flyway migration
+
+## API Layer
+- [ ] `SystemSettingsController`
+- [ ] Update [CampaignController](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/api/controller/CampaignController.java#29-137) to use resolver
+
+## Tests
+- [ ] `SettingsResolverServiceTest`
+- [ ] `SystemSettingsServiceTest`
+
+## Verification
+- [ ] `./gradlew compileJava` — 0 errors

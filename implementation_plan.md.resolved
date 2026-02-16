@@ -1,0 +1,127 @@
+# Dynamic System Settings with Per-Evaluation Override
+
+Admin-configurable system-wide settings stored in the database, with override capability at the **campaign** level (since campaigns own evaluations).
+
+## Architecture
+
+```mermaid
+graph TD
+  A["application.yml<br/>(bootstrap defaults)"] --> B["system_settings table<br/>(admin overrides)"]
+  B --> C["campaign_settings table<br/>(per-campaign overrides)"]
+  C --> D["SettingsResolverService<br/>resolves effective settings"]
+  D --> E["Services & Controllers<br/>use resolved settings"]
+```
+
+**Resolution order**: Campaign setting → System setting → application.yml default
+
+## Proposed Changes
+
+---
+
+### Domain Layer
+
+#### [NEW] [SystemSettingCategory.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/domain/enums/SystemSettingCategory.java)
+Enum: `SCORING`, `CAMPAIGN`, `NOTIFICATION`, `FEATURES`, `PAGINATION`
+
+#### [NEW] [SystemSetting.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/domain/entity/SystemSetting.java)
+Domain entity with `settingKey`, `settingValue`, `category`, `description`, `updatedBy`, `updatedAt`
+
+#### [NEW] [CampaignSettingOverride.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/domain/entity/CampaignSettingOverride.java)
+Per-campaign override: `campaignId`, `settingKey`, `settingValue`, `updatedBy`, `updatedAt`
+
+---
+
+### Application Layer
+
+#### [NEW] [SystemSettingsPersistencePort.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/port/out/SystemSettingsPersistencePort.java)
+Outbound port: [findAll()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/port/out/CampaignPersistencePort.java#21-22), `findByKey()`, [findByCategory()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/adapter/TemplateAdapter.java#39-45), [save()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/adapter/TemplateAdapter.java#26-32), [delete()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/port/out/TemplatePersistencePort.java#24-25)
+
+#### [NEW] [CampaignSettingsPersistencePort.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/port/out/CampaignSettingsPersistencePort.java)
+Outbound port: [findByCampaignId()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/repository/EvaluationJpaRepository.java#17-18), `findByCampaignIdAndKey()`, [save()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/adapter/TemplateAdapter.java#26-32), [delete()](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/port/out/TemplatePersistencePort.java#24-25)
+
+#### [NEW] [SystemSettingsUseCase.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/port/in/SystemSettingsUseCase.java)
+Inbound port: CRUD for system settings + campaign overrides
+
+#### [NEW] [SettingsResolverService.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/service/SettingsResolverService.java)
+**Core class** — resolves the effective value for any setting key:
+1. Check campaign-level override (if campaignId provided)
+2. Fall back to system-level DB setting
+3. Fall back to [EvaluationServiceProperties](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/config/EvaluationServiceProperties.java#17-350) (application.yml)
+
+#### [NEW] [SystemSettingsService.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/service/SystemSettingsService.java)
+Implements `SystemSettingsUseCase` — admin CRUD operations
+
+#### [MODIFY] [ScoringService.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/application/service/ScoringService.java)
+Use `SettingsResolverService` instead of hardcoded defaults
+
+---
+
+### Infrastructure Layer
+
+#### [NEW] [SystemSettingEntity.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/entity/SystemSettingEntity.java)
+JPA entity → `system_settings` table
+
+#### [NEW] [CampaignSettingOverrideEntity.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/entity/CampaignSettingOverrideEntity.java)
+JPA entity → `campaign_setting_overrides` table
+
+#### [NEW] [SystemSettingsRepository.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/repository/SystemSettingsRepository.java)
+JPA repository
+
+#### [NEW] [CampaignSettingsRepository.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/repository/CampaignSettingsRepository.java)
+JPA repository
+
+#### [NEW] [SystemSettingsAdapter.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/infrastructure/adapter/SystemSettingsAdapter.java)
+Implements both persistence ports
+
+#### [NEW] [V2__system_settings.sql](file:///home/amnayem/Projects/evaluation-service/src/main/resources/db/migration/V2__system_settings.sql)
+Creates `system_settings` and `campaign_setting_overrides` tables + seeds defaults
+
+---
+
+### API Layer
+
+#### [NEW] [SystemSettingsController.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/api/controller/SystemSettingsController.java)
+Admin REST API:
+- `GET /api/v1/admin/settings` — list all system settings
+- `GET /api/v1/admin/settings/{category}` — list by category
+- `PUT /api/v1/admin/settings/{key}` — update system setting
+- `GET /api/v1/admin/settings/campaigns/{campaignId}` — campaign overrides
+- `PUT /api/v1/admin/settings/campaigns/{campaignId}/{key}` — set override
+- `DELETE /api/v1/admin/settings/campaigns/{campaignId}/{key}` — remove override
+
+#### [MODIFY] [CampaignController.java](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/api/controller/CampaignController.java)
+Use `SettingsResolverService` for resolved defaults
+
+---
+
+### Setting Keys
+
+| Key | Category | Default | Description |
+|-----|----------|---------|-------------|
+| `scoring.default-method` | SCORING | `WEIGHTED_AVERAGE` | Default scoring method |
+| `scoring.passing-score-threshold` | SCORING | `70.0` | Pass/fail threshold |
+| `scoring.auto-score-on-submit` | SCORING | `true` | Auto-score on submission |
+| `scoring.max-score-value` | SCORING | `100.0` | Max normalized score |
+| `campaign.auto-activate` | CAMPAIGN | `false` | Auto-activate at start date |
+| `campaign.auto-close` | CAMPAIGN | `false` | Auto-close at end date |
+| `campaign.max-deadline-extension-days` | CAMPAIGN | `30` | Max deadline extension |
+| `campaign.default-minimum-respondents` | CAMPAIGN | `1` | Min respondents |
+| `campaign.send-deadline-reminders` | CAMPAIGN | `true` | Enable reminders |
+| `campaign.reminder-days-before-deadline` | CAMPAIGN | `3` | Days before deadline |
+| `notification.enabled` | NOTIFICATION | `true` | Notifications on/off |
+| `features.allow-anonymous-mode` | FEATURES | `true` | Allow anonymous |
+| `features.enable-reports` | FEATURES | `true` | Enable reporting |
+| `features.enable-csv-export` | FEATURES | `true` | CSV export |
+| `features.enable-pdf-export` | FEATURES | `false` | PDF export |
+| `pagination.default-page-size` | PAGINATION | `20` | Default page size |
+| `pagination.max-page-size` | PAGINATION | `100` | Max page size |
+
+## Verification Plan
+
+### Automated
+- `./gradlew compileJava` — zero errors
+- Unit tests for `SettingsResolverService` (3-level fallback logic)
+- Unit tests for `SystemSettingsService` (CRUD)
+
+### Manual
+- Verify admin API endpoints via Postman/curl

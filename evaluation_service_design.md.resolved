@@ -1,0 +1,508 @@
+# Production-Grade Evaluation Service — Full Design Specification
+
+> **Java 25 LTS + Spring Boot 4.0.1 + Spring Framework 7**
+> MVC Pattern · Hexagonal Architecture · DDD · Production-Ready
+
+---
+
+## 1. Product Vision
+
+A **fully configurable, multi-tenant evaluation platform** for evaluating teachers, staff, or any person using admin-defined templates. Think **Google Forms meets 360° feedback** — with enterprise-grade scoring, anonymity controls, campaign management, and real-time analytics.
+
+---
+
+## 2. Core Business Features
+
+### 2.1 Template Engine (The Heart)
+
+| Feature | Description |
+|---|---|
+| **Dynamic Template Builder** | Admin creates templates with drag-and-drop question ordering, sections, conditional logic, and branching |
+| **Question Types** | Likert scale (1–5, 1–7, 1–10), multiple choice, multi-select, open text, file upload, matrix/grid, ranking, NPS (Net Promoter Score) |
+| **Weighted Scoring** | Per-question, per-section, per-category weights configured by admin |
+| **Template Versioning** | Immutable versions — once published, a template is frozen; edits create new versions |
+| **Template Inheritance** | Base templates that can be extended (e.g., "Base Teacher Eval" → "Senior Teacher Eval") |
+| **i18n / Multilingual** | Questions and labels stored with locale keys; evaluators see their preferred language |
+| **Conditional Logic** | Show/hide questions based on previous answers (e.g., if score < 3, ask "What can improve?") |
+| **Question Bank** | Reusable library of pre-approved questions categorized by competency area |
+
+### 2.2 Evaluation Campaign Management
+
+| Feature | Description |
+|---|---|
+| **Campaign Lifecycle** | `DRAFT → SCHEDULED → ACTIVE → CLOSED → ARCHIVED` with automated state transitions |
+| **Scheduling** | Schedule campaigns with start/end dates, auto-open/close |
+| **Reminder Engine** | Configurable automated reminders (email/notification) at intervals |
+| **360° Evaluation** | Multiple evaluator roles: self, peer, supervisor, subordinate, external |
+| **Anonymous Mode** | Configurable anonymity per evaluator role (e.g., peer reviews anonymous, supervisor not) |
+| **Bulk Assignment** | Assign evaluator↔evaluatee pairs in bulk via CSV or API |
+| **Progress Tracking** | Real-time dashboard showing completion %, pending evaluators |
+| **Deadline Extensions** | Admin can extend deadlines per individual or campaign-wide |
+
+### 2.3 Evaluation Submission & Processing
+
+| Feature | Description |
+|---|---|
+| **Draft / Auto-save** | Evaluators can save partial progress and resume later |
+| **Validation Rules** | Admin-configured: required questions, minimum text length, consistency checks |
+| **Async Scoring** | Submissions trigger async scoring pipeline (virtual threads) |
+| **Score Normalization** | Bell curve, z-score, percentile rank — configurable per campaign |
+| **Conflict Detection** | Flag outlier scores (e.g., all 1s or all 5s) for review |
+| **Multi-submission Prevention** | Idempotency — one submission per evaluator-evaluatee-campaign |
+
+### 2.4 Reporting & Analytics
+
+| Feature | Description |
+|---|---|
+| **Individual Report** | Per-evaluatee: aggregated scores by category, strengths/weaknesses, spider chart data |
+| **Comparative Report** | Compare across evaluatees, departments, or time periods |
+| **Trend Analysis** | Track score changes across evaluation cycles |
+| **Anonymized Aggregation** | Aggregate feedback ensuring k-anonymity (minimum respondent threshold) |
+| **Export Formats** | PDF (server-rendered), Excel, CSV, JSON |
+| **Real-time Dashboard** | Live campaign metrics via SSE (Server-Sent Events) |
+
+### 2.5 Admin Configuration Panel
+
+| Feature | Description |
+|---|---|
+| **Role Management** | Admin, template creator, campaign manager, evaluator, evaluatee, report viewer |
+| **Scoring Formulas** | Admin defines formulas: weighted average, median, mode, custom expressions |
+| **Threshold Rules** | Configurable pass/fail thresholds, alert triggers (e.g., score < 2.5 → notify HR) |
+| **Category Management** | Hierarchical categories: "Teaching" → "Classroom Management" → "Student Engagement" |
+| **Audit Configuration** | Choose what actions are audited, retention policies |
+| **Feature Flags** | Admin toggles: enable/disable anonymity, comments, file uploads per template |
+
+---
+
+## 3. Architecture & Engineering Design
+
+### 3.1 Architecture Pattern
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     MVC + Hexagonal Architecture             │
+│                                                              │
+│  ┌─────────┐    ┌──────────────┐    ┌─────────────────────┐  │
+│  │   API   │───▶│  Application │───▶│      Domain         │  │
+│  │ (REST)  │    │  (Use Cases) │    │ (Entities, Values,  │  │
+│  │         │    │              │    │  Domain Events)      │  │
+│  └─────────┘    └──────────────┘    └─────────────────────┘  │
+│       ▲                                       ▲              │
+│       │              ┌────────────────────────┤              │
+│       │              │                        │              │
+│  ┌────┴────┐    ┌────┴─────────┐    ┌────────┴────────┐     │
+│  │   DTO   │    │Infrastructure│    │  Domain Services │     │
+│  │ Mappers │    │  (Adapters)  │    │  (Scoring, Rules)│     │
+│  └─────────┘    └──────────────┘    └─────────────────┘     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Java 25 Features to Leverage
+
+| Feature | Usage |
+|---|---|
+| **Virtual Threads** (finalized) | Default threading model — handle thousands of concurrent evaluations without thread pool sizing |
+| **Structured Concurrency** (5th preview) | Fan-out parallel scoring across sections, join results safely |
+| **Records** (finalized) | All DTOs, Value Objects, Commands, and Queries as records |
+| **Sealed Interfaces** (finalized) | `QuestionType`, `ScoringStrategy`, `CampaignState` — exhaustive pattern matching |
+| **Pattern Matching** (finalized) | `switch` with sealed types for scoring, state transitions, validation |
+| **Stable Values** (preview) | Lazy-init expensive resources: template parser, scoring engine |
+| **Flexible Constructors** (JEP 513) | Validated domain entity constructors with pre-`super()` checks |
+| **Compact Object Headers** (JEP 519) | Reduced memory for high-volume evaluation objects |
+
+### 3.3 Spring Boot 4 / Framework 7 Features
+
+| Feature | Usage |
+|---|---|
+| **API Versioning** (first-class) | `@ApiVersion("v1")` on controllers — version evaluation APIs cleanly |
+| **Built-in Resilience** | `@Retryable`, `@ConcurrencyLimit` — no external Resilience4j needed |
+| **JSpecify Null Safety** | Compile-time null checks across all API boundaries |
+| **Micrometer 2 + OpenTelemetry** | Unified metrics + distributed tracing out of the box |
+| **Virtual Threads default** | Auto-configured for `@Async`, `@Scheduled`, `@Controller` request handling |
+| **Modular Auto-Configuration** | Only load needed modules → faster startup |
+| **Jakarta EE 11** | Servlet 6.1, JPA 3.2, Bean Validation 3.1 |
+| **Declarative HTTP Interface** | For integrating with external services (email, notification) |
+
+### 3.4 Proposed Package Structure
+
+```
+src/main/java/com/evaluationservice/
+├── Application.java
+│
+├── api/                              # Presentation Layer (MVC Controllers)
+│   ├── controller/
+│   │   ├── TemplateController.java          # CRUD templates
+│   │   ├── CampaignController.java          # Manage campaigns
+│   │   ├── EvaluationController.java        # Submit/retrieve evaluations
+│   │   ├── ReportController.java            # Generate reports
+│   │   ├── AdminController.java             # Admin configuration
+│   │   └── QuestionBankController.java      # Question library
+│   ├── dto/
+│   │   ├── request/                         # Command DTOs (records)
+│   │   └── response/                        # Query DTOs (records)
+│   ├── mapper/                              # MapStruct DTO↔Domain mappers
+│   └── exception/                           # @ControllerAdvice, ProblemDetail
+│
+├── application/                      # Application Layer (Use Cases)
+│   ├── port/
+│   │   ├── in/                              # Inbound ports (use case interfaces)
+│   │   │   ├── TemplateManagementUseCase.java
+│   │   │   ├── CampaignManagementUseCase.java
+│   │   │   ├── EvaluationSubmissionUseCase.java
+│   │   │   ├── ReportGenerationUseCase.java
+│   │   │   └── QuestionBankUseCase.java
+│   │   └── out/                             # Outbound ports (SPI)
+│   │       ├── TemplatePersistencePort.java
+│   │       ├── CampaignPersistencePort.java
+│   │       ├── EvaluationPersistencePort.java
+│   │       ├── NotificationPort.java
+│   │       └── ReportExportPort.java
+│   ├── service/                             # Use case implementations
+│   └── event/                               # Domain event handlers
+│
+├── domain/                           # Domain Layer (Pure Java, zero deps)
+│   ├── entity/                              # Aggregates + Entities
+│   │   ├── Template.java                    # Aggregate root
+│   │   ├── Campaign.java                    # Aggregate root
+│   │   ├── Evaluation.java                  # Aggregate root
+│   │   ├── EvaluationResult.java
+│   │   ├── Question.java
+│   │   ├── Section.java
+│   │   └── Answer.java
+│   ├── value/                               # Value Objects (records)
+│   │   ├── TemplateId.java
+│   │   ├── CampaignId.java
+│   │   ├── EvaluationId.java
+│   │   ├── Score.java
+│   │   ├── Weight.java
+│   │   ├── DateRange.java
+│   │   └── Timestamp.java
+│   ├── enums/                               # Sealed enums
+│   │   ├── QuestionType.java
+│   │   ├── CampaignStatus.java
+│   │   ├── EvaluationStatus.java
+│   │   ├── EvaluatorRole.java
+│   │   └── ScoringMethod.java
+│   ├── event/                               # Domain Events (records)
+│   │   ├── EvaluationSubmittedEvent.java
+│   │   ├── CampaignClosedEvent.java
+│   │   └── ScoreComputedEvent.java
+│   ├── rule/                                # Domain Rules / Policies
+│   │   ├── ScoringStrategy.java             # Sealed interface
+│   │   ├── WeightedAverageScoring.java
+│   │   ├── NormalizedScoring.java
+│   │   └── ValidationPolicy.java
+│   └── exception/                           # Domain exceptions
+│       ├── DomainException.java
+│       ├── TemplateAlreadyPublishedException.java
+│       └── CampaignNotActiveException.java
+│
+└── infrastructure/                   # Infrastructure Layer
+    ├── adapter/                             # Outbound port implementations
+    │   ├── persistence/
+    │   │   ├── TemplateAdapter.java
+    │   │   ├── CampaignAdapter.java
+    │   │   └── EvaluationAdapter.java
+    │   ├── notification/
+    │   │   └── EmailNotificationAdapter.java
+    │   └── export/
+    │       ├── PdfReportExporter.java
+    │       └── ExcelReportExporter.java
+    ├── config/                              # Spring @Configuration
+    ├── entity/                              # JPA entities
+    ├── repository/                          # Spring Data JPA repos
+    ├── mapper/                              # JPA↔Domain mappers
+    ├── security/                            # JWT, OAuth2, filters
+    ├── monitoring/                          # Custom metrics, health indicators
+    └── scheduling/                          # Campaign auto-open/close jobs
+```
+
+---
+
+## 4. Engineering Best Practices (MAANG Style)
+
+### 4.1 Domain-Driven Design
+
+```java
+// Sealed interface with exhaustive pattern matching
+public sealed interface ScoringStrategy
+    permits WeightedAverage, NormalizedScore, PercentileRank, Median {
+
+    Score compute(List<Answer> answers, List<Weight> weights);
+}
+
+// Pattern matching in service
+Score score = switch (campaign.getScoringMethod()) {
+    case WeightedAverage wa -> wa.compute(answers, weights);
+    case NormalizedScore ns -> ns.compute(answers, weights);
+    case PercentileRank pr -> pr.compute(answers, weights);
+    case Median m          -> m.compute(answers, weights);
+};
+// Compiler enforces exhaustiveness ✅
+```
+
+### 4.2 Value Objects as Records
+
+```java
+// Compile-time type safety — no primitive obsession
+public record TemplateId(String value) {
+    public TemplateId { Objects.requireNonNull(value); }
+}
+public record Score(BigDecimal value) {
+    public Score {
+        if (value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(BigDecimal.TEN) > 0)
+            throw new IllegalArgumentException("Score must be 0–10");
+    }
+}
+public record Weight(BigDecimal value) {
+    public Weight {
+        if (value.compareTo(BigDecimal.ZERO) <= 0 || value.compareTo(BigDecimal.ONE) > 0)
+            throw new IllegalArgumentException("Weight must be (0, 1]");
+    }
+}
+```
+
+### 4.3 Structured Concurrency (Java 25)
+
+```java
+// Fan-out parallel scoring per section, join results safely
+EvaluationResult computeScores(Evaluation eval, Template template) throws Exception {
+    try (var scope = StructuredTaskScope.open(Joiner.allSuccessfulOrThrow())) {
+        List<Subtask<SectionScore>> tasks = template.getSections().stream()
+            .map(section -> scope.fork(() -> scoreSection(section, eval.answersFor(section))))
+            .toList();
+
+        scope.join();
+
+        List<SectionScore> sectionScores = tasks.stream()
+            .map(Subtask::get)
+            .toList();
+
+        return EvaluationResult.aggregate(sectionScores, template.getScoringStrategy());
+    }
+}
+```
+
+### 4.4 RFC 9457 Problem Details for Error Responses
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(DomainException.class)
+    ProblemDetail handleDomain(DomainException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+            HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        pd.setTitle(ex.getClass().getSimpleName());
+        pd.setType(URI.create("https://api.evaluationservice.com/errors/" +
+            toKebabCase(ex.getClass().getSimpleName())));
+        pd.setProperty("errorCode", ex.getErrorCode());
+        return pd;
+    }
+}
+```
+
+### 4.5 Idempotent Submission
+
+```java
+// Ensures exactly-once semantics — idempotency key per evaluator+campaign+evaluatee
+@Transactional
+public EvaluationResult submitEvaluation(SubmitEvaluationCommand cmd) {
+    var idempotencyKey = IdempotencyKey.of(
+        cmd.evaluatorId(), cmd.evaluateeId(), cmd.campaignId());
+
+    return evaluationRepo.findByIdempotencyKey(idempotencyKey)
+        .map(existing -> existing.getResult())  // Already submitted? Return existing
+        .orElseGet(() -> {
+            Evaluation eval = evaluationFactory.create(cmd);
+            eval.validate(templateService.getActiveVersion(cmd.templateId()));
+            EvaluationResult result = scoringService.compute(eval);
+            eval.complete(result);
+            evaluationRepo.save(eval);
+            eventPublisher.publish(new EvaluationSubmittedEvent(eval.getId()));
+            return result;
+        });
+}
+```
+
+### 4.6 API Design Best Practices
+
+```
+# RESTful, versioned, consistent
+GET    /api/v1/templates                      # List templates (paginated, filterable)
+POST   /api/v1/templates                      # Create template
+GET    /api/v1/templates/{id}/versions         # List template versions
+POST   /api/v1/templates/{id}/publish          # Publish (state transition)
+
+POST   /api/v1/campaigns                       # Create campaign
+POST   /api/v1/campaigns/{id}/activate          # Activate campaign
+GET    /api/v1/campaigns/{id}/progress          # Real-time progress
+
+POST   /api/v1/evaluations                     # Submit evaluation
+GET    /api/v1/evaluations/{id}/result          # Get result
+PUT    /api/v1/evaluations/{id}/draft           # Save draft
+
+GET    /api/v1/reports/individual/{evaluateeId} # Individual report
+GET    /api/v1/reports/campaign/{campaignId}     # Campaign summary
+POST   /api/v1/reports/export                   # Export (async, returns job ID)
+```
+
+---
+
+## 5. Cross-Cutting Concerns
+
+### 5.1 Security
+
+| Concern | Implementation |
+|---|---|
+| **Authentication** | JWT + OAuth2 Resource Server (Spring Security 7) |
+| **Authorization** | Method-level `@PreAuthorize` with SpEL + role hierarchy |
+| **Data Encryption** | AES-256 for PII at rest, TLS 1.3 in transit |
+| **Anonymity Enforcement** | Evaluator identity stripped at persistence layer for anonymous campaigns |
+| **Rate Limiting** | `@ConcurrencyLimit` (Spring Framework 7 built-in) on submission endpoints |
+| **Audit Logging** | Every mutation logged: who, what, when, old value, new value |
+
+### 5.2 Resilience
+
+| Pattern | Implementation |
+|---|---|
+| **Retry** | `@Retryable` (Spring Framework 7) for transient failures |
+| **Circuit Breaker** | Built-in `@CircuitBreaker` for external service calls |
+| **Timeout** | Structured Concurrency deadline scopes |
+| **Bulkhead** | Virtual thread per request (natural isolation) |
+| **Graceful Degradation** | Fallback scoring when external services unavailable |
+| **Idempotency** | Idempotency keys on all write endpoints |
+
+### 5.3 Observability
+
+| Layer | Tool |
+|---|---|
+| **Metrics** | Micrometer 2 → Prometheus (campaign completion rates, scoring latency, error rates) |
+| **Tracing** | OpenTelemetry → Jaeger/Tempo (end-to-end request traces) |
+| **Logging** | Structured JSON logging with MDC (correlation ID, user ID, campaign ID) |
+| **Health** | Custom health indicators: DB, Redis, external integrations |
+| **Alerting** | SLO-based: P99 latency, error rate, campaign completion rate |
+
+### 5.4 Caching Strategy
+
+| Cache | Strategy | TTL |
+|---|---|---|
+| **Published Templates** | Cache-aside (Redis) | Long (invalidate on new version) |
+| **Question Bank** | Cache-aside | Medium (admin changes rare) |
+| **Campaign Config** | Cache-aside | Until status change |
+| **Active Sessions** | Write-through | Session duration |
+| **Reports** | Write-behind (async generation) | Until underlying data changes |
+
+### 5.5 Testing Strategy
+
+| Level | Target | Tools |
+|---|---|---|
+| **Unit Tests** | Domain entities, value objects, scoring algorithms | JUnit 5, AssertJ |
+| **Integration Tests** | Repository adapters, cache, JPA mappings | `@DataJpaTest`, Testcontainers |
+| **API Tests** | Controller endpoints, validation, auth | `@WebMvcTest`, MockMvc |
+| **Contract Tests** | API stability across versions | Spring Cloud Contract |
+| **Architecture Tests** | Layer dependency enforcement | ArchUnit |
+| **Load Tests** | Concurrent evaluation submissions | Gatling / k6 |
+
+---
+
+## 6. Database Design (Key Tables)
+
+```mermaid
+erDiagram
+    TEMPLATE ||--o{ TEMPLATE_VERSION : has
+    TEMPLATE_VERSION ||--o{ SECTION : contains
+    SECTION ||--o{ QUESTION : contains
+    QUESTION }o--o{ QUESTION_BANK : "sourced from"
+
+    CAMPAIGN ||--|| TEMPLATE_VERSION : uses
+    CAMPAIGN ||--o{ CAMPAIGN_ASSIGNMENT : assigns
+    CAMPAIGN_ASSIGNMENT }o--|| EVALUATOR : "assigned to"
+    CAMPAIGN_ASSIGNMENT }o--|| EVALUATEE : "evaluating"
+
+    EVALUATION ||--|| CAMPAIGN_ASSIGNMENT : "for"
+    EVALUATION ||--o{ ANSWER : contains
+    EVALUATION ||--|| EVALUATION_RESULT : produces
+    ANSWER }o--|| QUESTION : "answers"
+
+    EVALUATION_RESULT ||--o{ SECTION_SCORE : "broken into"
+    SECTION_SCORE }o--|| SECTION : "for"
+
+    AUDIT_LOG ||--|| EVALUATION : tracks
+```
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| **Template versioning** via separate table | Immutable versions for audit trail + active evaluations always reference frozen templates |
+| **JSONB for question metadata** | Flexible schema for different question types without table-per-type |
+| **Idempotency key** (evaluator + evaluatee + campaign) | Unique constraint prevents double submission at DB level |
+| **Soft deletes** | Templates and campaigns are never hard-deleted — archived instead |
+| **Flyway migrations** | Versioned, repeatable SQL migrations for all schema changes |
+
+---
+
+## 7. Innovative / Differentiating Features
+
+| Feature | Description | Competitive Edge |
+|---|---|---|
+| **Formula Builder** | Admin writes scoring expressions: [(section1 * 0.4) + (section2 * 0.6)](file:///home/amnayem/Projects/evaluation-service/src/main/java/com/evaluationservice/Application.java#17-20) compiled at template publish time | No-code scoring customization |
+| **Anomaly Detection** | Statistical detection of suspicious patterns (all identical scores, too-fast completions) | Data integrity |
+| **Response Heatmap API** | API returns per-question response distribution for visualization | Rich analytics |
+| **Template Marketplace** | Share/import proven templates between organizations | Network effect |
+| **Progressive Disclosure** | Long evaluations shown section-by-section to reduce fatigue | Better UX → better data quality |
+| **Webhook Integration** | Fire webhooks on key events (submitted, campaign closed, anomaly detected) | 3rd party integration |
+| **Real-time SSE Progress** | Live completion counter for campaign managers | Engagement |
+| **PDF Report Generation** | Server-rendered PDF reports with charts using OpenPDF/JasperReports | Professional output |
+
+---
+
+## 8. Coding Standards
+
+| Practice | Standard |
+|---|---|
+| **Naming** | `ClassNameVerb` for services, `NounDto` for DTOs, `snake_case` SQL, `camelCase` Java |
+| **Records everywhere** | All DTOs, value objects, events, commands, queries → immutable records |
+| **No nulls in domain** | `Optional` returns, `Objects.requireNonNull` in constructors, JSpecify annotations |
+| **Small methods** | Max 15 lines per method, single responsibility |
+| **Domain purity** | Zero Spring/Jakarta imports in `domain/` package (enforced by ArchUnit test) |
+| **Port isolation** | Controllers depend only on inbound ports, never on service implementations |
+| **Error codes** | Every domain exception has a machine-readable error code |
+| **Pagination** | All list endpoints return `Page<T>` with cursor-based or offset pagination |
+| **Validation** | Jakarta Bean Validation on DTOs + domain-level invariant checks |
+| **JavaDoc** | All public APIs documented with `@param`, `@return`, `@throws` |
+
+---
+
+## 9. Non-Functional Requirements
+
+| Requirement | Target |
+|---|---|
+| **Latency** | P50 < 50ms, P99 < 200ms for CRUD; P99 < 1s for report generation |
+| **Throughput** | 1000+ concurrent evaluation submissions per second (virtual threads) |
+| **Availability** | 99.9% uptime target |
+| **Data Retention** | Configurable per tenant (default: 7 years for evaluations) |
+| **Max Template Size** | 500 questions per template |
+| **Max Campaign Size** | 50,000 evaluator assignments per campaign |
+| **Recovery** | RTO < 5min, RPO < 1min |
+
+---
+
+## 10. Tech Stack Summary
+
+| Component | Technology |
+|---|---|
+| **Language** | Java 25 (LTS) |
+| **Framework** | Spring Boot 4.0.1 + Spring Framework 7 |
+| **Build** | Gradle 9.x with toolchain |
+| **Database** | PostgreSQL 17 (JSONB for flexible schema) |
+| **Cache** | Redis 7 |
+| **Security** | Spring Security 7 + JWT + OAuth2 |
+| **Mapping** | MapStruct 1.6+ |
+| **Migration** | Flyway 11 |
+| **Observability** | Micrometer 2 + OpenTelemetry + Actuator |
+| **Testing** | JUnit 5 + AssertJ + Testcontainers + ArchUnit + Mockito |
+| **API Docs** | SpringDoc OpenAPI 3.1 |
+| **Containerization** | Docker + Docker Compose |
+| **Report Gen** | OpenPDF / JasperReports |
