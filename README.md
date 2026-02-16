@@ -1,136 +1,139 @@
-# Evaluation Process
+# Evaluation Service
 
-A comprehensive, scalable evaluation service built with Java 25 and Spring Boot 4, following industry best practices and modern engineering principles.
+A high-performance, scalable microservice for managing evaluation campaigns, submissions, and reporting. Built with **Java 25** and **Spring Boot 4**, leveraging virtual threads for optimal concurrency and a hexagonal architecture for maintainability.
 
-## Architecture Overview
+## 🚀 Key Features
 
-The evaluation service follows a hexagonal (ports and adapters) architecture pattern, enabling clean separation of concerns and testability. The system is designed for microservices deployment with the following components:
+*   **Dynamic Campaign Management**: Create, activate, and manage evaluation campaigns with customizable templates and scoring rules.
+*   **Flexible Templates**: Define evaluation structures with weighted sections, custom formulas, and version control.
+*   **Advanced Scoring**: Support for weighted averages, custom formulas, and partial credit.
+*   **Real-time Reporting**: Generate individual and campaign-level reports with CSV and PDF export capabilities.
+*   **System-Wide Configuration**: Admin-configurable settings with campaign-level overrides.
+*   **High Performance**: Utilizes **Java 25 Virtual Threads** for non-blocking I/O and **Redis** for caching.
+*   **Security**: Role-based access control (RBAC) secured with JWT authentication.
+*   **Resilience**: Circuit breakers (Resilience4j) and robust error handling for external integrations.
 
-- **API Layer**: REST controllers and DTOs
-- **Application Layer**: Use cases and business logic orchestration
-- **Domain Layer**: Business entities and value objects
-- **Infrastructure Layer**: Persistence, external services, and technical implementations
+## 🏗️ Architecture
 
-## Key Features
+The service follows a **Hexagonal Architecture (Ports and Adapters)** to decouple business logic from infrastructure concerns.
 
-### 1. Microservices Architecture
-- Hexagonal architecture with clear separation of concerns
-- Ports and adapters pattern for loose coupling
-- Asynchronous processing for improved performance
-- Service discovery with Eureka
-- API Gateway with Spring Cloud Gateway
+*   **Domain Layer**: Core business logic, entities (`Campaign`, `Evaluation`, `Template`), and value objects. Dependency-free.
+*   **Application Layer**: Use case implementations (`CampaignManagementService`, `EvaluationSubmissionService`) orchestrating domain objects.
+*   **API Layer (Inbound Adapters)**: REST Controllers exposing functionality via HTTP.
+*   **Infrastructure Layer (Outbound Adapters)**:
+    *   **Persistence**: PostgreSQL with Spring Data JPA.
+    *   **Caching**: Redis for session and entity caching.
+    *   **Notifications**: Async Webhook integration via OpenFeign.
+    *   **Configuration**: Dynamic properties via `SystemSettingsWithOverrides`.
 
-### 2. Security Implementation
-- JWT-based authentication and authorization
-- Role-based access control
-- Secure configuration management
-- Protection against common vulnerabilities
+## 🛠️ Technology Stack
 
-### 3. Configuration Management
-- Externalized configuration with Spring Cloud Config
-- Dynamic property updates
-- Environment-specific configurations
-- Feature flags for A/B testing
+*   **Language**: Java 25 (Virtual Threads, Records, Pattern Matching)
+*   **Framework**: Spring Boot 4.0.1
+*   **Database**: PostgreSQL 16
+*   **Cache**: Redis 7
+*   **Build Tool**: Gradle 8.5
+*   **Observability**: Micrometer, Prometheus, Zipkin
+*   **Testing**: JUnit 5, Testcontainers
 
-### 4. Data Storage Strategies
-- PostgreSQL for relational data
-- Redis for caching and session storage
-- JSONB columns for flexible schema
-- Connection pooling with HikariCP
+## 📋 Prerequisites
 
-### 5. API Design Patterns
-- RESTful API design following best practices
-- Comprehensive DTOs for data transfer
-- Proper error handling and validation
-- Versioned endpoints
+*   **Java 25 SDK** installed
+*   **Docker** and **Docker Compose**
+*   **Gradle 8.x** (or use generic wrapper)
 
-### 6. Monitoring and Observability
-- Micrometer for metrics collection
-- Distributed tracing with OpenTelemetry
-- Structured logging with correlation IDs
-- Health checks and readiness probes
+## 🚀 Getting Started
 
-### 7. Performance Optimization
-- Caching with Redis
-- Connection pooling
-- Asynchronous processing
-- Database query optimization
-- Virtual threads for I/O operations
-
-### 8. Deployment Strategy
-- Containerized with Docker
-- Orchestration-ready for Kubernetes
-- Multi-stage builds for optimized images
-- Health checks and liveness probes
-
-## Technology Stack
-
-- **Java 25**: Latest Java features including virtual threads, pattern matching, and value types
-- **Spring Boot 4**: Latest framework with enhanced performance and features
-- **Spring Cloud 2025**: Microservices ecosystem components
-- **PostgreSQL**: Robust relational database
-- **Redis**: High-performance caching and session storage
-- **Micrometer**: Metrics collection and monitoring
-- **Resilience4j**: Circuit breakers and fault tolerance
-- **MapStruct**: Efficient object mapping
-
-## Getting Started
-
-### Prerequisites
-- Java 25
-- Docker and Docker Compose
-- Maven 3.8+
-
-### Running Locally
-
-1. Clone the repository
-2. Build the application:
-   ```bash
-   mvn clean install
-   ```
-3. Start the infrastructure:
-   ```bash
-   docker-compose up -d postgres redis zipkin prometheus grafana
-   ```
-4. Run the application:
-   ```bash
-   java -jar target/evaluation-service-1.0.0.jar
-   ```
-
-### Docker Deployment
-
-Build and run with Docker:
+### 1. Clone the Repository
 ```bash
-docker build -t evaluation-service .
-docker run -p 8080:8080 evaluation-service
+git clone <repository-url>
+cd evaluation-service
 ```
 
-## API Endpoints
+### 2. Start Infrastructure
+Start PostgreSQL, Redis, and observability tools using Docker Compose:
+```bash
+docker-compose up -d postgres redis zipkin prometheus grafana
+```
 
-- `GET /api/v1/evaluations` - List all evaluations
-- `POST /api/v1/evaluations` - Create a new evaluation
-- `GET /api/v1/evaluations/{id}` - Get evaluation by ID
-- `PUT /api/v1/evaluations/{id}` - Update an evaluation
-- `DELETE /api/v1/evaluations/{id}` - Delete an evaluation
-- `POST /api/v1/evaluations/{id}/publish` - Publish an evaluation
-- `POST /api/v1/evaluations/{id}/archive` - Archive an evaluation
+### 3. Build the Application
+```bash
+./gradlew clean build
+```
 
-## Monitoring
+### 4. Run the Application
+```bash
+java -jar build/libs/evaluation-service-1.0.0.jar
+```
+*Alternatively, run with Gradle:*
+```bash
+./gradlew bootRun
+```
 
-The service exposes metrics at `/actuator/prometheus` and health information at `/actuator/health`.
+The application will start on **port 8080**.
 
-## Security
+## ⚙️ Configuration
 
-The service implements JWT-based authentication. Include the Authorization header with Bearer token for authenticated requests.
+The service is configured via `application.yml`. Key customizable properties:
 
-## Contributing
+| Property | Default | Description |
+| :--- | :--- | :--- |
+| `server.port` | `8080` | HTTP server port |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/...` | Database URL |
+| `spring.data.redis.host` | `localhost` | Redis host |
+| `spring.threads.virtual.enabled` | `true` | Enable Virtual Threads |
+| `evaluation.service.features.enable-reports` | `true` | Enable report generation |
+| `evaluation.service.notification.webhook-url` | *empty* | URL for webhook notifications |
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+### Dynamic System Settings
+Admins can override specific defaults at runtime without restarting via the `/api/v1/admin/settings` endpoints.
 
-## License
+## 📖 API Documentation
 
-This project is licensed under the MIT License.
+The service exposes a comprehensive REST API. 
+**[View Full API Documentation](API_DOCUMENTATION.md)**
+
+### Core Endpoints
+*   `GET /api/v1/campaigns`: List active campaigns
+*   `POST /api/v1/evaluations`: Submit an evaluation
+*   `GET /api/v1/reports/campaign/{id}`: Get campaign performance report
+*   `POST /api/v1/templates`: Create a new evaluation template
+
+## 🩺 Monitoring & Observability
+
+*   **Health Check**: `GET /actuator/health`
+*   **Metrics (Prometheus)**: `GET /actuator/prometheus`
+*   **Info**: `GET /actuator/info`
+
+## 📦 Deployment
+
+### Docker
+Build and run the containerized image:
+```bash
+docker build -t evaluation-service .
+docker run -p 8080:8080 -e DB_PASSWORD=secret evaluation-service
+```
+
+### Kubernetes (Ready)
+The application includes:
+*   **Liveness Probe**: `/actuator/health/liveness`
+*   **Readiness Probe**: `/actuator/health/readiness`
+*   **Graceful Shutdown**: Enabled by default
+
+## 🚨 Troubleshooting
+
+*   **Database Connection Failed**: Ensure PostgreSQL is running and credentials in `application.yml` match.
+*   **Redis Connection Refused**: generic `RedisConnectionException` usually means Redis container is not reachable. Check `docker ps`.
+*   **Virtual Threads Not Used**: verify `spring.threads.virtual.enabled=true` and run on Java 21+.
+
+## 🤝 Contributing
+
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/amazing-feature`).
+3.  Commit your changes (`git commit -m 'Add some amazing feature'`).
+4.  Push to the branch (`git push origin feature/amazing-feature`).
+5.  Open a Pull Request.
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
