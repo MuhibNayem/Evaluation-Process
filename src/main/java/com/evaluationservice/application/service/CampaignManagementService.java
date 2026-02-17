@@ -145,6 +145,12 @@ public class CampaignManagementService implements CampaignManagementUseCase {
         return campaign.getCompletionPercentage();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Campaign> listCampaignsForEvaluator(String evaluatorId) {
+        return campaignPersistencePort.findByEvaluatorId(evaluatorId);
+    }
+
     private Campaign findCampaignOrThrow(CampaignId campaignId) {
         return campaignPersistencePort.findById(campaignId)
                 .orElseThrow(() -> new EntityNotFoundException("Campaign", campaignId.value()));

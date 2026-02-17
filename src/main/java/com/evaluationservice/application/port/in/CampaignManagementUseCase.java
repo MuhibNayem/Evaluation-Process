@@ -17,40 +17,42 @@ import java.util.Set;
  */
 public interface CampaignManagementUseCase {
 
-    record CreateCampaignCommand(
-            String name,
-            String description,
-            TemplateId templateId,
-            int templateVersion,
-            DateRange dateRange,
-            ScoringMethod scoringMethod,
-            boolean anonymousMode,
-            Set<EvaluatorRole> anonymousRoles,
-            int minimumRespondents,
-            String createdBy) {
-    }
+        record CreateCampaignCommand(
+                        String name,
+                        String description,
+                        TemplateId templateId,
+                        int templateVersion,
+                        DateRange dateRange,
+                        ScoringMethod scoringMethod,
+                        boolean anonymousMode,
+                        Set<EvaluatorRole> anonymousRoles,
+                        int minimumRespondents,
+                        String createdBy) {
+        }
 
-    record AssignmentEntry(
-            String evaluatorId,
-            String evaluateeId,
-            EvaluatorRole evaluatorRole) {
-    }
+        record AssignmentEntry(
+                        String evaluatorId,
+                        String evaluateeId,
+                        EvaluatorRole evaluatorRole) {
+        }
 
-    Campaign createCampaign(CreateCampaignCommand command);
+        Campaign createCampaign(CreateCampaignCommand command);
 
-    Campaign activateCampaign(CampaignId campaignId);
+        Campaign activateCampaign(CampaignId campaignId);
 
-    Campaign closeCampaign(CampaignId campaignId);
+        Campaign closeCampaign(CampaignId campaignId);
 
-    Campaign archiveCampaign(CampaignId campaignId);
+        Campaign archiveCampaign(CampaignId campaignId);
 
-    Campaign extendDeadline(CampaignId campaignId, Instant newEndDate);
+        Campaign extendDeadline(CampaignId campaignId, Instant newEndDate);
 
-    Campaign addAssignments(CampaignId campaignId, List<AssignmentEntry> assignments);
+        Campaign addAssignments(CampaignId campaignId, List<AssignmentEntry> assignments);
 
-    Campaign getCampaign(CampaignId campaignId);
+        Campaign getCampaign(CampaignId campaignId);
 
-    List<Campaign> listCampaigns(String status, int page, int size);
+        List<Campaign> listCampaigns(String status, int page, int size);
 
-    double getCampaignProgress(CampaignId campaignId);
+        double getCampaignProgress(CampaignId campaignId);
+
+        List<Campaign> listCampaignsForEvaluator(String evaluatorId);
 }

@@ -1,0 +1,53 @@
+groups:
+  - name: evaluation-service-alerts
+    interval: 30s
+    rules:
+      - alert: EvaluationServiceDown
+        expr: up{job="evaluation-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Evaluation service is down"
+          description: "Prometheus cannot scrape evaluation-service for more than 1 minute."
+
+      - alert: High5xxErrorRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="evaluation-service",status=~"5.."}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{job="evaluation-service"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "5xx error ratio is above 5% for 5 minutes."
+
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{job="evaluation-service"}[5m]))
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 request latency"
+          description: "p95 latency is above 1.5s for 10 minutes."
+
+      - alert: HighJvmHeapUsage
+        expr: |
+          (
+            sum(jvm_memory_used_bytes{job="evaluation-service",area="heap"})
+            /
+            sum(jvm_memory_max_bytes{job="evaluation-service",area="heap"})
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap utilization"
+          description: "Heap usage is above 85% for 10 minutes."

@@ -33,7 +33,7 @@ The service follows a **Hexagonal Architecture (Ports and Adapters)** to decoupl
 *   **Database**: PostgreSQL 16
 *   **Cache**: Redis 7
 *   **Build Tool**: Gradle 8.5
-*   **Observability**: Micrometer, Prometheus, Zipkin
+*   **Observability**: Micrometer, Prometheus, Grafana, Loki, Zipkin
 *   **Testing**: JUnit 5, Testcontainers
 
 ## 📋 Prerequisites
@@ -53,7 +53,7 @@ cd evaluation-service
 ### 2. Start Infrastructure
 Start PostgreSQL, Redis, and observability tools using Docker Compose:
 ```bash
-docker-compose up -d postgres redis zipkin prometheus grafana
+docker-compose up -d postgres redis eureka zipkin prometheus loki promtail grafana
 ```
 
 ### 3. Build the Application
@@ -91,11 +91,15 @@ Admins can override specific defaults at runtime without restarting via the `/ap
 ## 📖 API Documentation
 
 The service exposes a comprehensive REST API. 
-**[View Full API Documentation](API_DOCUMENTATION.md)**
+**[View Full API Documentation](docs/API_DOCUMENTATION.md)**  
+**[OpenAPI Specification](docs/openapi.yaml)**
 
 ### Core Endpoints
+*   `POST /api/v1/auth/login`: Retrieve JWT token (mock login for dev/test)
 *   `GET /api/v1/campaigns`: List active campaigns
+*   `GET /api/v1/campaigns/assignments/me`: List current evaluator assignments
 *   `POST /api/v1/evaluations`: Submit an evaluation
+*   `PUT /api/v1/evaluations/{id}`: Save draft/update an evaluation
 *   `GET /api/v1/reports/campaign/{id}`: Get campaign performance report
 *   `POST /api/v1/templates`: Create a new evaluation template
 
@@ -104,6 +108,15 @@ The service exposes a comprehensive REST API.
 *   **Health Check**: `GET /actuator/health`
 *   **Metrics (Prometheus)**: `GET /actuator/prometheus`
 *   **Info**: `GET /actuator/info`
+*   **Prometheus UI**: `http://localhost:9090`
+*   **Grafana UI**: `http://localhost:3000` (admin/admin)
+*   **Zipkin UI (traces)**: `http://localhost:9411`
+*   **Loki API (logs backend)**: `http://localhost:3100`
+
+### Trace vs Log
+Zipkin is for **distributed traces**, not raw logs.  
+For logs, use Grafana Explore with the **Loki** datasource.  
+For correlation, application logs include `trace` and `span` IDs, and Grafana links those IDs to Zipkin traces.
 
 ## 📦 Deployment
 

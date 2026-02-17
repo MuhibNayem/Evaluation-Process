@@ -1,0 +1,918 @@
+openapi: 3.0.3
+info:
+  title: Evaluation Service API
+  version: 1.1.0
+  description: |
+    OpenAPI contract synced to current backend controllers.
+servers:
+  - url: http://localhost:8080
+
+tags:
+  - name: Auth
+  - name: Campaigns
+  - name: Evaluations
+  - name: Templates
+  - name: Reports
+  - name: Admin Settings
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Mock login for development/testing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: JWT token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/v1/campaigns:
+    post:
+      tags: [Campaigns]
+      summary: Create campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCampaignRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+    get:
+      tags: [Campaigns]
+      summary: List campaigns
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Campaign list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}:
+    get:
+      tags: [Campaigns]
+      summary: Get campaign by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/activate:
+    post:
+      tags: [Campaigns]
+      summary: Activate campaign
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/close:
+    post:
+      tags: [Campaigns]
+      summary: Close campaign
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/archive:
+    post:
+      tags: [Campaigns]
+      summary: Archive campaign
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/assignments:
+    post:
+      tags: [Campaigns]
+      summary: Add campaign assignments
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAssignmentsRequest'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/extend-deadline:
+    post:
+      tags: [Campaigns]
+      summary: Extend campaign deadline
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newEndDate:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/progress:
+    get:
+      tags: [Campaigns]
+      summary: Campaign completion progress
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completionPercentage:
+                    type: number
+                    format: double
+
+  /api/v1/campaigns/assignments/me:
+    get:
+      tags: [Campaigns]
+      summary: Current evaluator assignments
+      responses:
+        '200':
+          description: Assignment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyAssignmentResponse'
+
+  /api/v1/evaluations:
+    post:
+      tags: [Evaluations]
+      summary: Submit evaluation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitEvaluationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+
+  /api/v1/evaluations/{id}:
+    get:
+      tags: [Evaluations]
+      summary: Get evaluation
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Evaluation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+    put:
+      tags: [Evaluations]
+      summary: Save evaluation draft
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvaluationRequest'
+      responses:
+        '200':
+          description: Updated evaluation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+
+  /api/v1/evaluations/campaign/{campaignId}:
+    get:
+      tags: [Evaluations]
+      summary: List evaluations by campaign
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Evaluation list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvaluationResponse'
+
+  /api/v1/evaluations/evaluatee/{evaluateeId}:
+    get:
+      tags: [Evaluations]
+      summary: List evaluations by evaluatee
+      parameters:
+        - in: path
+          name: evaluateeId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Evaluation list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvaluationResponse'
+
+  /api/v1/evaluations/{id}/flag:
+    post:
+      tags: [Evaluations]
+      summary: Flag evaluation
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Flagged
+
+  /api/v1/evaluations/{id}/invalidate:
+    post:
+      tags: [Evaluations]
+      summary: Invalidate evaluation
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Invalidated
+
+  /api/v1/templates:
+    post:
+      tags: [Templates]
+      summary: Create template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+    get:
+      tags: [Templates]
+      summary: List templates
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateResponse'
+
+  /api/v1/templates/{id}:
+    get:
+      tags: [Templates]
+      summary: Get template
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+    delete:
+      tags: [Templates]
+      summary: Delete template
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /api/v1/templates/{id}/publish:
+    post:
+      tags: [Templates]
+      summary: Publish template
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+
+  /api/v1/templates/{id}/deprecate:
+    post:
+      tags: [Templates]
+      summary: Deprecate template
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+
+  /api/v1/reports/individual:
+    get:
+      tags: [Reports]
+      summary: Individual report
+      parameters:
+        - in: query
+          name: evaluateeId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: campaignId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Individual report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndividualReportResult'
+
+  /api/v1/reports/campaign/{campaignId}:
+    get:
+      tags: [Reports]
+      summary: Campaign report
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Campaign report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignReportResult'
+
+  /api/v1/reports/export/csv/{campaignId}:
+    get:
+      tags: [Reports]
+      summary: Export campaign report CSV
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV content
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/reports/export/pdf:
+    get:
+      tags: [Reports]
+      summary: Export individual report PDF
+      parameters:
+        - in: query
+          name: evaluateeId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: campaignId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: PDF content
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/admin/settings:
+    get:
+      tags: [Admin Settings]
+      summary: List system settings
+      responses:
+        '200':
+          description: Settings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SettingResponse'
+
+  /api/v1/admin/settings/category/{category}:
+    get:
+      tags: [Admin Settings]
+      summary: List settings by category
+      parameters:
+        - in: path
+          name: category
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Settings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SettingResponse'
+
+  /api/v1/admin/settings/{key}:
+    get:
+      tags: [Admin Settings]
+      summary: Get setting by key
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Setting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingResponse'
+    put:
+      tags: [Admin Settings]
+      summary: Update setting by key
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValuePayload'
+      responses:
+        '200':
+          description: Updated setting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingResponse'
+
+  /api/v1/admin/settings/campaigns/{campaignId}:
+    get:
+      tags: [Admin Settings]
+      summary: Get overrides for a campaign
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Override list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OverrideResponse'
+
+  /api/v1/admin/settings/campaigns/{campaignId}/{key}:
+    put:
+      tags: [Admin Settings]
+      summary: Set campaign override
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValuePayload'
+      responses:
+        '200':
+          description: Override saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverrideResponse'
+    delete:
+      tags: [Admin Settings]
+      summary: Remove campaign override
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+
+components:
+  parameters:
+    IdPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+
+    ValuePayload:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: string
+
+    CreateCampaignRequest:
+      type: object
+      required: [name, templateId, startDate, endDate]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        templateId:
+          type: string
+        templateVersion:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        scoringMethod:
+          type: string
+        anonymousMode:
+          type: boolean
+        anonymousRoles:
+          type: array
+          items:
+            type: string
+        minimumRespondents:
+          type: integer
+
+    AddAssignmentsRequest:
+      type: object
+      required: [assignments]
+      properties:
+        assignments:
+          type: array
+          items:
+            type: object
+            required: [evaluatorId, evaluateeId, evaluatorRole]
+            properties:
+              evaluatorId:
+                type: string
+              evaluateeId:
+                type: string
+              evaluatorRole:
+                type: string
+
+    CampaignResponse:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        templateId: { type: string }
+        templateVersion: { type: integer }
+        status: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        scoringMethod: { type: string }
+        anonymousMode: { type: boolean }
+        totalAssignments: { type: integer }
+        completedAssignments: { type: integer, format: int64 }
+        completionPercentage: { type: number, format: double }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SubmitEvaluationRequest:
+      type: object
+      required: [campaignId, assignmentId, evaluatorId, evaluateeId, templateId, answers]
+      properties:
+        campaignId: { type: string }
+        assignmentId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        templateId: { type: string }
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerRequest'
+
+    UpdateEvaluationRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerRequest'
+
+    AnswerRequest:
+      type: object
+      properties:
+        questionId: { type: string }
+        value: {}
+        selectedOptions:
+          type: array
+          items: { type: string }
+        textResponse: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+
+    EvaluationResponse:
+      type: object
+      properties:
+        id: { type: string }
+        campaignId: { type: string }
+        assignmentId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        templateId: { type: string }
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerResponse'
+        status: { type: string }
+        totalScore: { type: number, format: double }
+        answerCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        submittedAt: { type: string, format: date-time }
+
+    AnswerResponse:
+      type: object
+      properties:
+        id: { type: string }
+        questionId: { type: string }
+        value: { type: string }
+        selectedOptions:
+          type: array
+          items: { type: string }
+        textResponse: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+
+    MyAssignmentResponse:
+      type: object
+      properties:
+        id: { type: string }
+        campaignId: { type: string }
+        campaignName: { type: string }
+        endDate: { type: string, format: date-time }
+        evaluateeId: { type: string }
+        status: { type: string }
+        evaluationId: { type: string, nullable: true }
+
+    CreateTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        scoringMethod: { type: string }
+
+    TemplateResponse:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        status: { type: string }
+        currentVersion: { type: integer }
+        scoringMethod: { type: string }
+        totalQuestions: { type: integer }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    IndividualReportResult:
+      type: object
+      properties:
+        evaluateeId: { type: string }
+        evaluateeName: { type: string }
+        campaignId: { type: string }
+        overallScore: { type: number, format: double }
+        sectionScores:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        strengths:
+          type: object
+          additionalProperties:
+            type: string
+        weaknesses:
+          type: object
+          additionalProperties:
+            type: string
+        totalEvaluations: { type: integer }
+        respondentCount: { type: integer }
+
+    CampaignReportResult:
+      type: object
+      properties:
+        campaignId: { type: string }
+        campaignName: { type: string }
+        averageScore: { type: number, format: double }
+        completionPercentage: { type: number, format: double }
+        totalAssignments: { type: integer }
+        completedAssignments: { type: integer }
+        sectionAverages:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+
+    SettingResponse:
+      type: object
+      properties:
+        key: { type: string }
+        value: { type: string }
+        category: { type: string }
+        description: { type: string }
+        updatedBy: { type: string }
+        updatedAt: { type: string }
+
+    OverrideResponse:
+      type: object
+      properties:
+        campaignId: { type: string }
+        key: { type: string }
+        value: { type: string }
+        updatedBy: { type: string }
+        updatedAt: { type: string }

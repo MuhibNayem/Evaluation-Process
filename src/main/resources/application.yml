@@ -51,6 +51,7 @@ spring:
     password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
     hikari:
+      auto-commit: false
       maximum-pool-size: 20
       minimum-idle: 5
       connection-timeout: 30000
@@ -97,7 +98,7 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:mySecretKeyForEvaluationService}
+  secret: ${JWT_SECRET:mySecretKeyForEvaluationServiceX}
   expiration: ${JWT_EXPIRATION:86400000}
 
 # Eureka Client Configuration
@@ -134,8 +135,8 @@ logging:
     com.evaluationservice: INFO
     org.springframework.security: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [trace=%X{traceId:-},span=%X{spanId:-}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [trace=%X{traceId:-},span=%X{spanId:-}] - %msg%n"
   file:
     name: logs/evaluation-service.log
   logback:

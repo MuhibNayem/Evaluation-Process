@@ -55,4 +55,13 @@ public class CampaignAdapter implements CampaignPersistencePort {
     public boolean existsById(CampaignId campaignId) {
         return repository.existsById(campaignId.value());
     }
+
+    @Override
+    public List<Campaign> findByEvaluatorId(String evaluatorId) {
+        // Simple string matching for JSON column - assumes "evaluatorId":"<id>" pattern
+        String pattern = "\"evaluatorId\":\"" + evaluatorId + "\"";
+        return repository.findByAssignmentsJsonLike(pattern).stream()
+                .map(mapper::toDomainCampaign)
+                .toList();
+    }
 }

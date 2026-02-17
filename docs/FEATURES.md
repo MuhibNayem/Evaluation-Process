@@ -129,9 +129,12 @@ This allows you to safety-test new features (like PDF export) on a pilot campaig
 ## 7. Security & Architecture
 
 ### Authorization
-*   **RBAC**: Access is strictly controlled by roles (`ADMIN`, `USER`).
+*   **RBAC**: Role-based access supports operational roles such as `ROLE_ADMIN`, `ROLE_EVALUATOR`, and `ROLE_EVALUATEE`.
 *   **Data Isolation**: Users can only fetch evaluations where they are the *Evaluator* or *Evaluatee*.
 *   **Token-Based**: Stateless JWT authentication.
+
+### Development Mode Note
+*   In local/testing environments, `evaluation.service.security.dev-mode=true` may permit all requests to simplify integration and UI testing.
 
 ### Resilience
 *   **Circuit Breakers**: Calls to the Notification Webhook are wrapped in a Circuit Breaker. If the webhook server goes down, the system stops trying for a cooldown period to prevent resource exhaustion.

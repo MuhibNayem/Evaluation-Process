@@ -36,6 +36,8 @@ build/
 *.iml
 *.ipr
 out/
+!src/main/java/com/evaluationservice/application/port/out/
+!src/main/java/com/evaluationservice/application/port/out/**
 
 # NetBeans
 /nbproject/private/

@@ -1,0 +1,141 @@
+<script lang="ts">
+    import { page } from "$app/stores";
+    import { onMount } from "svelte";
+    import api from "$lib/api.js";
+    import { goto } from "$app/navigation";
+    import EvaluationForm from "$lib/components/evaluation/EvaluationForm.svelte";
+    import { Loader2, ArrowLeft } from "@lucide/svelte";
+    import { Button } from "$lib/components/ui/button/index.js";
+
+    import { Badge } from "$lib/components/ui/badge/index.js";
+
+    // @ts-ignore
+    let evaluationId = $derived($page.params.id);
+
+    let isLoading = $state(true);
+    let isSubmitting = $state(false);
+    let error = $state<string | null>(null);
+
+    let evaluation = $state<any>(null);
+    let template = $state<any>(null);
+    let initialAnswers = $state<Record<string, any>>({});
+    let mode = $state<"create" | "edit" | "view">("edit");
+
+    async function fetchData() {
+        isLoading = true;
+        try {
+            // 1. Fetch Evaluation
+            const evalRes = await api.get(`/evaluations/${evaluationId}`);
+            evaluation = evalRes.data;
+
+            // Determine mode
+            if (
+                evaluation.status === "COMPLETED" ||
+                evaluation.status === "SUBMITTED"
+            ) {
+                mode = "view";
+            } else {
+                mode = "edit";
+            }
+
+            // 2. Fetch Template
+            const templateRes = await api.get(
+                `/templates/${evaluation.templateId}`,
+            );
+            template = templateRes.data;
+
+            // 3. Map answers
+            if (evaluation.answers) {
+                evaluation.answers.forEach((a: any) => {
+                    initialAnswers[a.questionId] = {
+                        questionId: a.questionId,
+                        value: a.value,
+                        selectedOptions: a.selectedOptions,
+                        textResponse: a.textResponse,
+                    };
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            error = "Failed to load evaluation.";
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    onMount(() => {
+        if (evaluationId) fetchData();
+    });
+
+    async function handleSubmit(answersList: any[]) {
+        if (mode === "view") return;
+        isSubmitting = true;
+        try {
+            const payload = {
+                answers: answersList.map((a) => ({
+                    questionId: a.questionId,
+                    value: a.value?.toString(),
+                    selectedOptions: a.selectedOptions,
+                    textResponse: a.textResponse,
+                    metadata: {},
+                })),
+            };
+
+            await api.put(`/evaluations/${evaluationId}`, payload);
+            // Reload data to reflect changes
+            await fetchData();
+            // Show success ?
+            alert("Evaluation saved successfully!");
+        } catch (err: any) {
+            console.error(err);
+            error = "Failed to submit evaluation.";
+        } finally {
+            isSubmitting = false;
+        }
+    }
+</script>
+
+<div class="flex flex-col gap-6 max-w-4xl mx-auto pb-20">
+    <div class="flex items-center gap-4">
+        <Button
+            variant="ghost"
+            size="icon"
+            href="/evaluations"
+            onclick={() => goto("/evaluations")}
+        >
+            <ArrowLeft class="h-4 w-4" />
+        </Button>
+        <div>
+            <h1 class="text-lg font-semibold md:text-2xl">
+                {mode === "view" ? "View Evaluation" : "Edit Evaluation"}
+            </h1>
+            {#if evaluation}
+                <Badge
+                    variant={evaluation.status === "COMPLETED"
+                        ? "default"
+                        : "outline"}
+                >
+                    {evaluation.status}
+                </Badge>
+            {/if}
+        </div>
+    </div>
+
+    {#if isLoading}
+        <div class="flex justify-center p-12">
+            <Loader2 class="h-8 w-8 animate-spin text-primary" />
+        </div>
+    {:else if error}
+        <div class="rounded-md bg-red-50 p-4 text-sm text-red-700">
+            {error}
+        </div>
+    {:else}
+        <EvaluationForm
+            {template}
+            {initialAnswers}
+            onSubmit={handleSubmit}
+            {isSubmitting}
+            {mode}
+        />
+    {/if}
+</div>

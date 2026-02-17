@@ -42,6 +42,7 @@ public class DatabaseConfig {
         config.setUsername(username);
         config.setPassword(password);
         config.setDriverClassName("org.postgresql.Driver");
+        config.setAutoCommit(false);
 
         // Performance optimizations
         config.setMaximumPoolSize(20);

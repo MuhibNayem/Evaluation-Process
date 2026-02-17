@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -25,22 +26,33 @@ import java.util.stream.Collectors;
  * Filter that intercepts HTTP requests to validate JWT tokens.
  * Extracts the token from the Authorization header, validates it,
  * and loads dynamic permissions from the database.
+ * In dev-mode, this filter is skipped entirely.
  */
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
 
     private final RoleRepository roleRepository;
     private final JwtUtil jwtUtil;
+    private final boolean devMode;
 
-    public JwtRequestFilter(RoleRepository roleRepository, JwtUtil jwtUtil) {
+    public JwtRequestFilter(RoleRepository roleRepository, JwtUtil jwtUtil,
+            @Value("${evaluation.service.security.dev-mode:true}") boolean devMode) {
         this.roleRepository = roleRepository;
         this.jwtUtil = jwtUtil;
+        this.devMode = devMode;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
             HttpServletResponse response,
             FilterChain chain) throws ServletException, IOException {
+
+        // Skip JWT validation entirely in dev mode
+        if (devMode) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         final String requestTokenHeader = request.getHeader("Authorization");
 
         String username = null;
@@ -60,17 +72,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             if (jwtUtil.validateToken(jwtToken)) {
-                // Extract roles from token (assuming "roles" claim is a List<String>)
-                // If roles are not in token, you might need to fetch them from DB or default to
-                // empty
                 List<String> roles = jwtUtil.getClaimFromToken(jwtToken, claims -> claims.get("roles", List.class));
 
                 Set<GrantedAuthority> authorities = new HashSet<>();
                 if (roles != null) {
-                    // Add roles as authorities
                     authorities.addAll(roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()));
 
-                    // Fetch dynamic permissions for these roles
                     Set<String> permissions = roleRepository.findPermissionsByRoleNames(roles);
                     authorities
                             .addAll(permissions.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()));

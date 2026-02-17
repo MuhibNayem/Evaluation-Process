@@ -10,4 +10,8 @@ import org.springframework.stereotype.Repository;
 public interface CampaignRepository extends JpaRepository<CampaignEntity, String> {
 
     Page<CampaignEntity> findByStatus(String status, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM CampaignEntity c WHERE c.assignmentsJson LIKE %:pattern%")
+    java.util.List<CampaignEntity> findByAssignmentsJsonLike(
+            @org.springframework.data.repository.query.Param("pattern") String pattern);
 }

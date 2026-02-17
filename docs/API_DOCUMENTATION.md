@@ -1,62 +1,80 @@
-# API Documentation v1.0
+# API Documentation v1.1
 
-**Base URL**: `http://localhost:8080`
+**Base URL**: `http://localhost:8080`  
 **Content-Type**: `application/json`
 
-## 🔐 Authentication
-All endpoints require a specific HTTP Header for authentication:
+## Authentication
 
-```http
-Authorization: Bearer <your-jwt-token>
+### Token endpoint
+- `POST /api/v1/auth/login`
+
+Request body:
+```json
+{
+  "username": "admin",
+  "password": "admin"
+}
 ```
-*   **401 Unauthorized**: Missing or invalid token.
-*   **403 Forbidden**: Token valid but user lacks permission.
+
+Success response:
+```json
+{
+  "token": "<jwt-token>"
+}
+```
+
+Mock users currently supported:
+- `admin/admin`
+- `evaluator/evaluator`
+- `evaluatee/evaluatee`
+
+### Auth behavior by environment
+- In dev/testing, `evaluation.service.security.dev-mode=true` permits all requests.
+- In secured mode, send:
+```http
+Authorization: Bearer <jwt-token>
+```
 
 ---
 
-## 📦 Campaigns
-Lifecycle management for evaluation cycles.
+## Campaigns
 
-### 1. Create a Campaign
-**POST** `/api/v1/campaigns`
+### Create campaign
+- `POST /api/v1/campaigns`
 
-Create a new evaluation cycle linked to a template.
-
-**Request Body:**
 ```json
 {
   "name": "Q4 Engineering Performance Review",
-  "description": "Year-end 360 evaluation for all engineering levels.",
+  "description": "Year-end 360 evaluation",
   "templateId": "tmpl_2893f9a-112",
   "templateVersion": 1,
-  "startDate": "2023-10-01T09:00:00Z",
-  "endDate": "2023-10-31T17:00:00Z",
+  "startDate": "2026-10-01T09:00:00Z",
+  "endDate": "2026-10-31T17:00:00Z",
   "scoringMethod": "WEIGHTED_AVERAGE",
   "anonymousMode": true,
   "anonymousRoles": ["PEER", "SUBORDINATE"],
   "minimumRespondents": 3
 }
 ```
-*   `scoringMethod`: `WEIGHTED_AVERAGE`, `SIMPLE_AVERAGE`, `MEDIAN`, `PERCENTILE_RANK`
-*   `anonymousRoles`: Roles whose feedback will be anonymized in reports.
 
-**Response (201 Created):**
-```json
-{
-  "id": "camp_550e8400-e29b",
-  "name": "Q4 Engineering Performance Review",
-  "status": "DRAFT",
-  "createdAt": "2023-09-15T10:00:00Z",
-  "...": "other fields"
-}
-```
+### Get campaign
+- `GET /api/v1/campaigns/{id}`
 
-### 2. Add Assignments (Batch)
-**POST** `/api/v1/campaigns/{id}/assignments`
+### List campaigns
+- `GET /api/v1/campaigns?status=ACTIVE&page=0&size=20`
 
-Assign multiple evaluators to evaluatees in a single batch.
+### Activate campaign
+- `POST /api/v1/campaigns/{id}/activate`
 
-**Request Body:**
+### Close campaign
+- `POST /api/v1/campaigns/{id}/close`
+
+### Archive campaign
+- `POST /api/v1/campaigns/{id}/archive`
+
+### Add assignments
+- `POST /api/v1/campaigns/{id}/assignments`
+
 ```json
 {
   "assignments": [
@@ -74,170 +92,225 @@ Assign multiple evaluators to evaluatees in a single batch.
 }
 ```
 
-### 3. Get Campaign Overview
-**GET** `/api/v1/campaigns/{id}`
+### Extend deadline
+- `POST /api/v1/campaigns/{id}/extend-deadline`
 
-Retrieves campaign details including progress stats.
-
-**Response (200 OK):**
 ```json
 {
-  "id": "camp_550e8400-e29b",
-  "status": "ACTIVE",
-  "totalAssignments": 150,
-  "completedAssignments": 45,
-  "completionPercentage": 30.0,
-  "startDate": "2023-10-01T09:00:00Z"
+  "newEndDate": "2026-11-07T17:00:00Z"
 }
+```
+
+### Campaign progress
+- `GET /api/v1/campaigns/{id}/progress`
+
+Response:
+```json
+{
+  "completionPercentage": 30.0
+}
+```
+
+### My assignments
+- `GET /api/v1/campaigns/assignments/me`
+
+Response example:
+```json
+[
+  {
+    "id": "assign_1",
+    "campaignId": "camp_1",
+    "campaignName": "Q4 Engineering Performance Review",
+    "endDate": "2026-10-31T17:00:00Z",
+    "evaluateeId": "user_200",
+    "status": "PENDING",
+    "evaluationId": null
+  }
+]
 ```
 
 ---
 
-## 📝 Evaluations
-Submission and retrieval of evaluation forms.
+## Evaluations
 
-### 1. Submit Evaluation
-**POST** `/api/v1/evaluations`
+### Submit evaluation
+- `POST /api/v1/evaluations`
 
-Submit a completed evaluation. This operation is idempotent.
-
-**Request Body:**
 ```json
 {
-  "campaignId": "camp_550e8400-e29b",
-  "assignmentId": "assign_778899",
+  "campaignId": "camp_1",
+  "assignmentId": "assign_1",
   "evaluatorId": "user_101",
   "evaluateeId": "user_200",
-  "templateId": "tmpl_2893f9a-112",
+  "templateId": "tmpl_1",
   "answers": [
     {
       "questionId": "q_technical_01",
       "value": 4.5,
-      "textResponse": "Excellent grasp of Java 25 features.",
+      "textResponse": "Excellent grasp of Java",
       "selectedOptions": [],
       "metadata": { "confidence": "high" }
-    },
-    {
-      "questionId": "q_leadership_02",
-      "value": null,
-      "textResponse": "Needs to delegate more.",
-      "selectedOptions": ["opt_needs_improvement"]
     }
   ]
 }
 ```
 
-### 2. List Evaluations
-**GET** `/api/v1/evaluations/campaign/{campaignId}`
+Note:
+- If a non-anonymous authenticated user is present, backend uses the authenticated identity as `evaluatorId`.
 
-List all submissions for a campaign.
+### Get evaluation
+- `GET /api/v1/evaluations/{id}`
 
-**Query Parameters:**
-*   `page`: (int) Page number (0-indexed). Default: 0.
-*   `size`: (int) Page size. Default: 20.
+### Update evaluation draft
+- `PUT /api/v1/evaluations/{id}`
 
----
-
-## 📊 Reports
-Data extraction and analysis.
-
-### 1. Get Campaign Report
-**GET** `/api/v1/reports/campaign/{campaignId}`
-
-Returns aggregated statistics for the entire campaign.
-
-**Response (200 OK):**
 ```json
 {
-  "campaignId": "camp_550e8400-e29b",
-  "totalEvaluations": 145,
-  "averageScore": 84.5,
-  "participationRate": 96.6,
-  "distribution": {
-    "90-100": 15,
-    "80-89": 85,
-    "70-79": 40,
-    "0-69": 5
-  }
+  "answers": [
+    {
+      "questionId": "q_technical_01",
+      "value": 5,
+      "textResponse": "Updated answer",
+      "selectedOptions": [],
+      "metadata": {}
+    }
+  ]
 }
 ```
 
-### 2. Download CSV Export
-**GET** `/api/v1/reports/export/csv/{campaignId}`
+### List by campaign
+- `GET /api/v1/evaluations/campaign/{campaignId}?page=0&size=20`
 
-Downloads a `.csv` file containing raw evaluation data for offline analysis.
+### List by evaluatee
+- `GET /api/v1/evaluations/evaluatee/{evaluateeId}?page=0&size=20`
 
----
+### Flag evaluation
+- `POST /api/v1/evaluations/{id}/flag`
 
-## 📋 Templates
-Form scaffolding and versioning.
+### Invalidate evaluation
+- `POST /api/v1/evaluations/{id}/invalidate`
 
-### 1. Create Template
-**POST** `/api/v1/templates`
-
-**Request Body:**
+### Evaluation response shape
 ```json
 {
-  "name": "Manager Review 2024",
-  "description": "Standard template for management track",
-  "category": "PERFORMANCE",
-  "scoringMethod": "WEIGHTED_AVERAGE"
+  "id": "eval_1",
+  "campaignId": "camp_1",
+  "assignmentId": "assign_1",
+  "evaluatorId": "user_101",
+  "evaluateeId": "user_200",
+  "templateId": "tmpl_1",
+  "answers": [
+    {
+      "id": "ans_1",
+      "questionId": "q_technical_01",
+      "value": "4.5",
+      "selectedOptions": [],
+      "textResponse": "Excellent",
+      "metadata": {"confidence": "high"}
+    }
+  ],
+  "status": "COMPLETED",
+  "totalScore": 84.5,
+  "answerCount": 1,
+  "createdAt": "2026-10-10T10:00:00Z",
+  "submittedAt": "2026-10-10T10:05:00Z"
 }
 ```
-*   *Note*: Questions and sections are added via separate updates (not shown here for brevity, usually part of a larger PUT).
-
-### 2. Publish Template
-**POST** `/api/v1/templates/{id}/publish`
-
-Locks the template version. It can now be used in campaigns but cannot be modified.
 
 ---
 
-## ⚙️ System Settings (Admin)
-Dynamic configuration management.
+## Templates
 
-### 1. Update Global Setting
-**PUT** `/api/v1/admin/settings/{key}`
+### Create template
+- `POST /api/v1/templates`
 
-**Request Body:**
+### Get template
+- `GET /api/v1/templates/{id}`
+
+### List templates
+- `GET /api/v1/templates?category=PERFORMANCE&page=0&size=20`
+
+### Publish template
+- `POST /api/v1/templates/{id}/publish`
+
+### Deprecate template
+- `POST /api/v1/templates/{id}/deprecate`
+
+### Delete template
+- `DELETE /api/v1/templates/{id}`
+
+---
+
+## Reports
+
+### Individual report
+- `GET /api/v1/reports/individual?evaluateeId={evaluateeId}&campaignId={campaignId}`
+
+### Campaign report
+- `GET /api/v1/reports/campaign/{campaignId}`
+
+### Export CSV
+- `GET /api/v1/reports/export/csv/{campaignId}`
+
+### Export PDF
+- `GET /api/v1/reports/export/pdf?evaluateeId={evaluateeId}&campaignId={campaignId}`
+
+Report feature flags:
+- `evaluation.service.features.enable-reports`
+- `evaluation.service.features.enable-csv-export`
+- `evaluation.service.features.enable-pdf-export`
+
+---
+
+## Admin Settings
+
+### List all settings
+- `GET /api/v1/admin/settings`
+
+### List settings by category
+- `GET /api/v1/admin/settings/category/{category}`
+
+### Get setting by key
+- `GET /api/v1/admin/settings/{key}`
+
+### Update setting
+- `PUT /api/v1/admin/settings/{key}`
+
 ```json
 {
   "value": "true"
 }
 ```
-**Example Keys:**
-*   `evaluation.service.features.enable-reports`
-*   `evaluation.service.pagination.default-page-size`
 
-### 2. Override for Campaign
-**PUT** `/api/v1/admin/settings/campaigns/{campaignId}/{key}`
+### Get campaign overrides
+- `GET /api/v1/admin/settings/campaigns/{campaignId}`
 
-Apply a setting strictly to one campaign (e.g., enable PDF export for executives only).
+### Set campaign override
+- `PUT /api/v1/admin/settings/campaigns/{campaignId}/{key}`
 
----
-
-## ⚠️ Error Handling
-The API uses [RFC 9457 Problem Details](https://datatracker.ietf.org/doc/html/rfc9457) for error responses.
-
-**Example Error (422 Unprocessable Entity):**
 ```json
 {
-  "type": "https://api.evaluationservice.com/errors/campaign-not-active",
-  "title": "Campaign Not Active",
-  "status": 422,
-  "detail": "Campaign 'camp_550e8400' is currently CLOSED. Submissions are not accepted.",
-  "instance": "/api/v1/evaluations",
-  "errorCode": "CAMPAIGN_CLOSED"
+  "value": "false"
 }
 ```
 
-**Common Status Codes:**
-*   `200 OK`: Success.
-*   `201 Created`: Resource successfully created.
-*   `400 Bad Request`: Validation failure (missing fields).
-*   `401 Unauthorized`: Invalid or missing token.
-*   `403 Forbidden`: Insufficient permissions.
-*   `404 Not Found`: Resource ID does not exist.
-*   `409 Conflict`: State conflict (e.g., modifying a published template).
-*   `422 Unprocessable Entity`: Business logic violation (e.g., campaign closed).
-*   `500 Internal Server Error`: Server-side failure.
+### Remove campaign override
+- `DELETE /api/v1/admin/settings/campaigns/{campaignId}/{key}`
+
+---
+
+## Error Format
+
+The API returns RFC 9457 `ProblemDetail` for handled failures.
+
+Typical statuses:
+- `200 OK`
+- `201 Created`
+- `204 No Content`
+- `400 Bad Request`
+- `401 Unauthorized`
+- `403 Forbidden`
+- `404 Not Found`
+- `409 Conflict`
+- `422 Unprocessable Entity`
+- `500 Internal Server Error`

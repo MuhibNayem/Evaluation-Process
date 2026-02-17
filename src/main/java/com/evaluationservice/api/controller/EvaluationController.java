@@ -72,6 +72,33 @@ public class EvaluationController {
         return ResponseEntity.ok(responseMapper.toResponse(evaluation));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<EvaluationResponse> updateEvaluation(
+            @PathVariable String id,
+            @Valid @RequestBody com.evaluationservice.api.dto.request.UpdateEvaluationRequest request) {
+        List<Answer> answers = request.answers().stream()
+                .map(a -> new Answer(
+                        UUID.randomUUID().toString(), // New ID for updated answers? Or reuse if ID provided?
+                        // Answer is a value object in record, but has ID.
+                        // Domain Answer has ID.
+                        // Request has questionId.
+                        // Ideally we should preserve ID if provided?
+                        // But here we are replacing answers list.
+                        // Let's generate new IDs for simplicity as saveDraft replaces list.
+                        a.questionId(),
+                        a.value(),
+                        a.selectedOptions(),
+                        a.textResponse(),
+                        a.metadata()))
+                .toList();
+
+        var command = new com.evaluationservice.application.port.in.EvaluationSubmissionUseCase.SaveDraftCommand(
+                EvaluationId.of(id),
+                answers);
+        Evaluation evaluation = evaluationUseCase.saveDraft(command);
+        return ResponseEntity.ok(responseMapper.toResponse(evaluation));
+    }
+
     @GetMapping("/campaign/{campaignId}")
     public ResponseEntity<List<EvaluationResponse>> listByCampaign(
             @PathVariable String campaignId,

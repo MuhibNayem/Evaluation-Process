@@ -45,6 +45,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/public/**").permitAll()
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/actuator/info").permitAll()
+                    .requestMatchers("/actuator/prometheus").permitAll()
                     .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                     .anyRequest().authenticated())
                     .exceptionHandling(exception -> exception

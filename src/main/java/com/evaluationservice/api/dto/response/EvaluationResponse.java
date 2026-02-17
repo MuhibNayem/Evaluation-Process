@@ -8,14 +8,16 @@ import java.time.Instant;
  * Response DTO for evaluation data.
  */
 public record EvaluationResponse(
-        String id,
-        String campaignId,
-        String assignmentId,
-        String evaluatorId,
-        String evaluateeId,
-        EvaluationStatus status,
-        Double totalScore,
-        int answerCount,
-        Instant createdAt,
-        Instant submittedAt) {
+                String id,
+                String campaignId,
+                String assignmentId,
+                String evaluatorId,
+                String evaluateeId,
+                String templateId,
+                java.util.List<AnswerResponse> answers,
+                EvaluationStatus status,
+                Double totalScore,
+                int answerCount,
+                Instant createdAt,
+                Instant submittedAt) {
 }

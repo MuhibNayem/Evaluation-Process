@@ -129,6 +129,29 @@ public class CampaignController {
         return ResponseEntity.ok(Map.of("completionPercentage", progress));
     }
 
+    @GetMapping("/assignments/me")
+    public ResponseEntity<List<com.evaluationservice.api.dto.response.MyAssignmentResponse>> getMyAssignments() {
+        String userId = userProvider.getCurrentUserId();
+        List<Campaign> campaigns = campaignUseCase.listCampaignsForEvaluator(userId);
+
+        List<com.evaluationservice.api.dto.response.MyAssignmentResponse> response = campaigns.stream()
+                .flatMap(c -> c.getAssignments().stream()
+                        .filter(a -> a.getEvaluatorId().equals(userId))
+                        // Only include incomplete assignments or those with evaluationId?
+                        // Let's include everything for now.
+                        .map(a -> new com.evaluationservice.api.dto.response.MyAssignmentResponse(
+                                a.getId(),
+                                c.getId().value(),
+                                c.getName(),
+                                c.getDateRange().endDate(),
+                                a.getEvaluateeId(),
+                                a.isCompleted() ? "COMPLETED" : "PENDING",
+                                a.getEvaluationId())))
+                .toList();
+
+        return ResponseEntity.ok(response);
+    }
+
     private int resolvePageSize(Integer requestedSize) {
         if (requestedSize == null) {
             return settingsResolver.resolveInt("pagination.default-page-size");
