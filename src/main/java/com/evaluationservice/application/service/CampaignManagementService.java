@@ -68,6 +68,22 @@ public class CampaignManagementService implements CampaignManagementUseCase {
     }
 
     @Override
+    public Campaign updateCampaign(UpdateCampaignCommand command) {
+        Campaign campaign = findCampaignOrThrow(command.campaignId());
+
+        campaign.update(
+                command.name(),
+                command.description(),
+                command.dateRange(),
+                command.scoringMethod(),
+                command.anonymousMode(),
+                command.anonymousRoles(),
+                command.minimumRespondents());
+
+        return campaignPersistencePort.save(campaign);
+    }
+
+    @Override
     public Campaign activateCampaign(CampaignId campaignId) {
         var campaign = findCampaignOrThrow(campaignId);
         campaign.activate();

@@ -127,14 +127,31 @@ public class Campaign {
         this.updatedAt = Timestamp.now();
     }
 
-    public void updateDetails(String name, String description) {
-        if (this.status != CampaignStatus.DRAFT) {
-            throw new IllegalStateException("Cannot update details of non-draft campaign");
+    public void update(String name, String description, DateRange dateRange, ScoringMethod scoringMethod,
+            boolean anonymousMode, Set<EvaluatorRole> anonymousRoles, int minimumRespondents) {
+        if (this.status != CampaignStatus.DRAFT && this.status != CampaignStatus.SCHEDULED) {
+            throw new IllegalStateException("Cannot update details of campaign in status: " + this.status);
         }
-        if (name != null && !name.isBlank())
+        // If SCHEDULED, maybe restricted? For now allow all updates if not ACTIVE.
+
+        if (name != null && !name.isBlank()) {
             this.name = name;
-        if (description != null)
+        }
+        if (description != null) {
             this.description = description;
+        }
+        if (dateRange != null) {
+            this.dateRange = dateRange;
+        }
+        if (scoringMethod != null) {
+            this.scoringMethod = scoringMethod;
+        }
+        if (anonymousRoles != null) {
+            this.anonymousRoles = new HashSet<>(anonymousRoles);
+        }
+        this.anonymousMode = anonymousMode;
+        this.minimumRespondents = Math.max(minimumRespondents, 1);
+
         this.updatedAt = Timestamp.now();
     }
 

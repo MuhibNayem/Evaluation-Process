@@ -36,7 +36,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private final boolean devMode;
 
     public JwtRequestFilter(RoleRepository roleRepository, JwtUtil jwtUtil,
-            @Value("${evaluation.service.security.dev-mode:true}") boolean devMode) {
+            @Value("${evaluation.service.security.dev-mode:false}") boolean devMode) {
         this.roleRepository = roleRepository;
         this.jwtUtil = jwtUtil;
         this.devMode = devMode;

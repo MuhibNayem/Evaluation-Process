@@ -59,4 +59,9 @@ public class TemplateAdapter implements TemplatePersistencePort {
     public void deleteById(TemplateId templateId) {
         repository.deleteById(templateId.value());
     }
+
+    @Override
+    public long count() {
+        return repository.count();
+    }
 }

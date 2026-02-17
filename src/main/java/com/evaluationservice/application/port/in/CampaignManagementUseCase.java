@@ -36,7 +36,20 @@ public interface CampaignManagementUseCase {
                         EvaluatorRole evaluatorRole) {
         }
 
+        record UpdateCampaignCommand(
+                        com.evaluationservice.domain.value.CampaignId campaignId,
+                        String name,
+                        String description,
+                        DateRange dateRange,
+                        ScoringMethod scoringMethod,
+                        boolean anonymousMode,
+                        Set<EvaluatorRole> anonymousRoles,
+                        int minimumRespondents) {
+        }
+
         Campaign createCampaign(CreateCampaignCommand command);
+
+        Campaign updateCampaign(UpdateCampaignCommand command);
 
         Campaign activateCampaign(CampaignId campaignId);
 

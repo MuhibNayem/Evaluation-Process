@@ -124,6 +124,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_CLOUD_CONFIG_ENABLED=false
+      - SECURITY_DEV_MODE=true
       - DB_PASSWORD=${DB_PASSWORD:-password}
       - JWT_SECRET=${JWT_SECRET:-mySecretKeyForEvaluationService}
     depends_on:

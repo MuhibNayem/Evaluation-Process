@@ -72,6 +72,23 @@ public class CampaignController {
         return ResponseEntity.ok(responseMapper.toResponse(campaign));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<CampaignResponse> updateCampaign(
+            @PathVariable String id,
+            @Valid @RequestBody com.evaluationservice.api.dto.request.UpdateCampaignRequest request) {
+        var command = new com.evaluationservice.application.port.in.CampaignManagementUseCase.UpdateCampaignCommand(
+                CampaignId.of(id),
+                request.name(),
+                request.description(),
+                DateRange.of(request.startDate(), request.endDate()),
+                request.scoringMethod(),
+                request.anonymousMode() != null ? request.anonymousMode() : false,
+                request.anonymousRoles(),
+                request.minimumRespondents() != null ? request.minimumRespondents() : 0);
+        Campaign campaign = campaignUseCase.updateCampaign(command);
+        return ResponseEntity.ok(responseMapper.toResponse(campaign));
+    }
+
     @GetMapping
     public ResponseEntity<List<CampaignResponse>> listCampaigns(
             @RequestParam(required = false) String status,

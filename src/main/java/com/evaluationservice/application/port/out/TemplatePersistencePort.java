@@ -22,4 +22,6 @@ public interface TemplatePersistencePort {
     boolean existsById(TemplateId templateId);
 
     void deleteById(TemplateId templateId);
+
+    long count();
 }

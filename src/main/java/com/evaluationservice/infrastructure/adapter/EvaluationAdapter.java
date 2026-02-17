@@ -71,4 +71,21 @@ public class EvaluationAdapter implements EvaluationPersistencePort {
     public boolean existsByAssignmentId(String assignmentId) {
         return repository.existsByAssignmentId(assignmentId);
     }
+
+    @Override
+    public long count() {
+        return repository.count();
+    }
+
+    @Override
+    public long countByStatus(String status) {
+        return repository.countByStatus(status);
+    }
+
+    @Override
+    public List<Evaluation> findRecentUpdated(int limit) {
+        return repository.findAllByOrderByUpdatedAtDesc(PageRequest.of(0, Math.max(limit, 1))).stream()
+                .map(mapper::toDomainEvaluation)
+                .toList();
+    }
 }

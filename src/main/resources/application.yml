@@ -151,7 +151,7 @@ logging:
 evaluation:
   service:
     security:
-      dev-mode: true
+      dev-mode: ${SECURITY_DEV_MODE:false}
 
     # Scoring defaults
     scoring:

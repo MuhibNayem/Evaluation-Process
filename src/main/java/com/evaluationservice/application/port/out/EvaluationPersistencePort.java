@@ -25,4 +25,10 @@ public interface EvaluationPersistencePort {
     List<Evaluation> findCompletedByCampaignAndEvaluatee(CampaignId campaignId, String evaluateeId);
 
     boolean existsByAssignmentId(String assignmentId);
+
+    long count();
+
+    long countByStatus(String status);
+
+    List<Evaluation> findRecentUpdated(int limit);
 }

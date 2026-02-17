@@ -58,9 +58,34 @@ public class CampaignAdapter implements CampaignPersistencePort {
 
     @Override
     public List<Campaign> findByEvaluatorId(String evaluatorId) {
-        // Simple string matching for JSON column - assumes "evaluatorId":"<id>" pattern
-        String pattern = "\"evaluatorId\":\"" + evaluatorId + "\"";
-        return repository.findByAssignmentsJsonLike(pattern).stream()
+        return repository.findByEvaluatorId(evaluatorId).stream()
+                .map(mapper::toDomainCampaign)
+                .toList();
+    }
+
+    @Override
+    public long count() {
+        return repository.count();
+    }
+
+    @Override
+    public long countByStatus(CampaignStatus status) {
+        return repository.countByStatus(status.name());
+    }
+
+    @Override
+    public long countTotalAssignments() {
+        return repository.countTotalAssignments();
+    }
+
+    @Override
+    public long countCompletedAssignments() {
+        return repository.countCompletedAssignments();
+    }
+
+    @Override
+    public List<Campaign> findRecentUpdated(int limit) {
+        return repository.findAllByOrderByUpdatedAtDesc(PageRequest.of(0, Math.max(limit, 1))).stream()
                 .map(mapper::toDomainCampaign)
                 .toList();
     }

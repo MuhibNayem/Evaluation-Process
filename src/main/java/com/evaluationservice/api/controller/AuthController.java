@@ -4,6 +4,7 @@ import com.evaluationservice.api.dto.request.LoginRequest;
 import com.evaluationservice.api.dto.response.LoginResponse;
 import com.evaluationservice.infrastructure.security.JwtUtil;
 import jakarta.validation.Valid;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +20,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
+@ConditionalOnProperty(prefix = "evaluation.service.security", name = "dev-mode", havingValue = "true")
 public class AuthController {
 
     private final JwtUtil jwtUtil;

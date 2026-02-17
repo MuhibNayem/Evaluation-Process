@@ -23,4 +23,14 @@ public interface CampaignPersistencePort {
     boolean existsById(CampaignId campaignId);
 
     List<Campaign> findByEvaluatorId(String evaluatorId);
+
+    long count();
+
+    long countByStatus(CampaignStatus status);
+
+    long countTotalAssignments();
+
+    long countCompletedAssignments();
+
+    List<Campaign> findRecentUpdated(int limit);
 }

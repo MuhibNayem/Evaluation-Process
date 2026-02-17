@@ -27,7 +27,7 @@ public class SecurityConfig {
 
     public SecurityConfig(JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
             JwtRequestFilter jwtRequestFilter,
-            @Value("${evaluation.service.security.dev-mode:true}") boolean devMode) {
+            @Value("${evaluation.service.security.dev-mode:false}") boolean devMode) {
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.jwtRequestFilter = jwtRequestFilter;
         this.devMode = devMode;
