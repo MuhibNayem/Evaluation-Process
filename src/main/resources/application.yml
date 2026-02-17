@@ -107,8 +107,12 @@ eureka:
       defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka}
     register-with-eureka: true
     fetch-registry: true
+    healthcheck:
+      enabled: true
   instance:
     prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
 
 # Resilience4j Configuration
 resilience4j:
@@ -128,7 +132,7 @@ resilience4j:
 logging:
   level:
     com.evaluationservice: INFO
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
@@ -145,6 +149,9 @@ logging:
 # ====================================================
 evaluation:
   service:
+    security:
+      dev-mode: true
+
     # Scoring defaults
     scoring:
       default-method: WEIGHTED_AVERAGE

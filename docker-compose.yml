@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U evaluation_user -d evaluation_service"]
+      test: [ "CMD-SHELL", "pg_isready -U evaluation_user -d evaluation_service" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +26,26 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Eureka Service Discovery
+  eureka:
+    image: steeltoeoss/eureka-server:latest
+    container_name: evaluation-eureka
+    environment:
+      - EUREKA_SERVER_ENABLE_SELF_PRESERVATION=false
+      - EUREKA_SERVER_RENEWAL_PERCENT_THRESHOLD=0.85
+      - EUREKA_SERVER_EVICTION_INTERVAL_TIMER_IN_MS=5000
+      - EUREKA_SERVER_RESPONSE_CACHE_UPDATE_INTERVAL_MS=3000
+      - EUREKA_SERVER_EXPECTED_CLIENT_RENEWAL_INTERVAL_SECONDS=10
+      - JAVA_TOOL_OPTIONS=-Deureka.server.enable-self-preservation=false -Deureka.server.renewal-percent-threshold=0.85 -Deureka.server.eviction-interval-timer-in-ms=5000 -Deureka.server.response-cache-update-interval-ms=3000 -Deureka.server.expected-client-renewal-interval-seconds=10
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8761/actuator/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -81,8 +100,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      eureka:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
       interval: 30s
       timeout: 10s
       retries: 3

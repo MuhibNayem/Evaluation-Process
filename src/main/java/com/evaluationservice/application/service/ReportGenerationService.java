@@ -27,6 +27,8 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class ReportGenerationService implements ReportGenerationUseCase {
 
+    private static final int REPORT_PAGE_SIZE = 500;
+
     private final EvaluationPersistencePort evaluationPersistencePort;
     private final CampaignPersistencePort campaignPersistencePort;
 
@@ -41,8 +43,7 @@ public class ReportGenerationService implements ReportGenerationUseCase {
     public IndividualReportResult generateIndividualReport(String evaluateeId, CampaignId campaignId) {
         Campaign campaign = findCampaignOrThrow(campaignId);
 
-        List<Evaluation> evaluations = evaluationPersistencePort
-                .findByCampaignId(campaignId, 0, Integer.MAX_VALUE)
+        List<Evaluation> evaluations = fetchCampaignEvaluations(campaignId)
                 .stream()
                 .filter(e -> evaluateeId.equals(e.getEvaluateeId()))
                 .toList();
@@ -73,8 +74,7 @@ public class ReportGenerationService implements ReportGenerationUseCase {
     public CampaignReportResult generateCampaignReport(CampaignId campaignId) {
         Campaign campaign = findCampaignOrThrow(campaignId);
 
-        List<Evaluation> evaluations = evaluationPersistencePort
-                .findByCampaignId(campaignId, 0, Integer.MAX_VALUE);
+        List<Evaluation> evaluations = fetchCampaignEvaluations(campaignId);
 
         int totalAssignments = campaign.getAssignments().size();
         int completedAssignments = (int) evaluations.stream()
@@ -105,11 +105,9 @@ public class ReportGenerationService implements ReportGenerationUseCase {
 
     @Override
     public byte[] exportReportAsPdf(String evaluateeId, CampaignId campaignId) {
-        // PDF generation would require a library like iText or Apache PDFBox
-        // For now, return a text-based representation
         IndividualReportResult report = generateIndividualReport(evaluateeId, campaignId);
         String content = formatReportAsText(report);
-        return content.getBytes(StandardCharsets.UTF_8);
+        return toSimplePdf(content);
     }
 
     @Override
@@ -139,6 +137,23 @@ public class ReportGenerationService implements ReportGenerationUseCase {
     private Campaign findCampaignOrThrow(CampaignId campaignId) {
         return campaignPersistencePort.findById(campaignId)
                 .orElseThrow(() -> new EntityNotFoundException("Campaign", campaignId.value()));
+    }
+
+    private List<Evaluation> fetchCampaignEvaluations(CampaignId campaignId) {
+        List<Evaluation> all = new java.util.ArrayList<>();
+        int page = 0;
+        while (true) {
+            List<Evaluation> chunk = evaluationPersistencePort.findByCampaignId(campaignId, page, REPORT_PAGE_SIZE);
+            if (chunk.isEmpty()) {
+                break;
+            }
+            all.addAll(chunk);
+            if (chunk.size() < REPORT_PAGE_SIZE) {
+                break;
+            }
+            page++;
+        }
+        return all;
     }
 
     private Map<String, Double> aggregateSectionScores(List<Evaluation> evaluations) {
@@ -186,6 +201,57 @@ public class ReportGenerationService implements ReportGenerationUseCase {
         report.sectionScores().forEach((section, score) -> sb.append("  ").append(section).append(": ")
                 .append(String.format("%.2f", score)).append("\n"));
         return sb.toString();
+    }
+
+    private byte[] toSimplePdf(String text) {
+        String escaped = text.replace("\\", "\\\\")
+                .replace("(", "\\(")
+                .replace(")", "\\)");
+
+        String[] lines = escaped.split("\\R");
+        StringBuilder stream = new StringBuilder();
+        stream.append("BT\n/F1 10 Tf\n50 780 Td\n");
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                stream.append("0 -14 Td\n");
+            }
+            stream.append("(").append(lines[i]).append(") Tj\n");
+        }
+        stream.append("ET");
+
+        String obj1 = "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n";
+        String obj2 = "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n";
+        String obj3 = "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+                + "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n";
+        String obj4 = "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n";
+        String obj5 = "5 0 obj << /Length " + stream.length() + " >> stream\n"
+                + stream + "\nendstream endobj\n";
+
+        StringBuilder pdf = new StringBuilder();
+        pdf.append("%PDF-1.4\n");
+        int off1 = pdf.length();
+        pdf.append(obj1);
+        int off2 = pdf.length();
+        pdf.append(obj2);
+        int off3 = pdf.length();
+        pdf.append(obj3);
+        int off4 = pdf.length();
+        pdf.append(obj4);
+        int off5 = pdf.length();
+        pdf.append(obj5);
+        int xref = pdf.length();
+
+        pdf.append("xref\n0 6\n");
+        pdf.append("0000000000 65535 f \n");
+        pdf.append(String.format("%010d 00000 n \n", off1));
+        pdf.append(String.format("%010d 00000 n \n", off2));
+        pdf.append(String.format("%010d 00000 n \n", off3));
+        pdf.append(String.format("%010d 00000 n \n", off4));
+        pdf.append(String.format("%010d 00000 n \n", off5));
+        pdf.append("trailer << /Size 6 /Root 1 0 R >>\n");
+        pdf.append("startxref\n").append(xref).append("\n%%EOF");
+
+        return pdf.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private double round(double value) {

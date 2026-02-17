@@ -39,6 +39,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
+    // OpenAPI / Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
+
     // Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
@@ -64,14 +67,6 @@ dependencies {
 
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-
-    // 3. REMOVED: implementation 'io.github.resilience4j:resilience4j-spring-boot3'
-    // REASON: This was for Boot 3 and conflicted with the Spring Cloud BOM managed versions.
-    // The 'spring-cloud-starter-circuitbreaker-resilience4j' above includes what you need.
-
-    // Resilience (Core library is fine if you need specific features not in Cloud starter, but usually redundant)
-    // If you strictly need this, rely on the BOM version if possible, or ensure it matches Boot 4.
-    // implementation 'io.github.resilience4j:resilience4j-spring-boot3' <-- DELETED
 
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'

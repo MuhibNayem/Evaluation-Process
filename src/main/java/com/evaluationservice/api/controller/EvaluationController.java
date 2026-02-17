@@ -10,6 +10,7 @@ import com.evaluationservice.domain.entity.Evaluation;
 import com.evaluationservice.domain.value.CampaignId;
 import com.evaluationservice.domain.value.EvaluationId;
 import com.evaluationservice.infrastructure.config.EvaluationServiceProperties;
+import com.evaluationservice.infrastructure.security.SecurityContextUserProvider;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -29,14 +30,17 @@ public class EvaluationController {
     private final EvaluationSubmissionUseCase evaluationUseCase;
     private final ResponseMapper responseMapper;
     private final EvaluationServiceProperties properties;
+    private final SecurityContextUserProvider userProvider;
 
     public EvaluationController(
             EvaluationSubmissionUseCase evaluationUseCase,
             ResponseMapper responseMapper,
-            EvaluationServiceProperties properties) {
+            EvaluationServiceProperties properties,
+            SecurityContextUserProvider userProvider) {
         this.evaluationUseCase = evaluationUseCase;
         this.responseMapper = responseMapper;
         this.properties = properties;
+        this.userProvider = userProvider;
     }
 
     @PostMapping
@@ -54,7 +58,7 @@ public class EvaluationController {
         var command = new SubmitEvaluationCommand(
                 CampaignId.of(request.campaignId()),
                 request.assignmentId(),
-                request.evaluatorId(),
+                resolveEvaluatorId(request.evaluatorId()),
                 request.evaluateeId(),
                 request.templateId(),
                 answers);
@@ -113,5 +117,13 @@ public class EvaluationController {
             return properties.getPagination().getDefaultPageSize();
         }
         return Math.min(requestedSize, properties.getPagination().getMaxPageSize());
+    }
+
+    private String resolveEvaluatorId(String requestEvaluatorId) {
+        String authenticatedUser = userProvider.getCurrentUserId();
+        if (!"anonymous".equals(authenticatedUser)) {
+            return authenticatedUser;
+        }
+        return requestEvaluatorId;
     }
 }

@@ -2,6 +2,7 @@ package com.evaluationservice.infrastructure.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -54,10 +55,29 @@ public class DatabaseConfig {
         return new HikariDataSource(config);
     }
 
+    /**
+     * Explicitly configure Flyway since auto-configuration is bypassed
+     * by the manual DataSource/EntityManagerFactory beans.
+     * Flyway runs all pending migrations before anything else uses the database.
+     */
+    @Bean(initMethod = "migrate")
+    public Flyway flyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .baselineOnMigrate(true)
+                .load();
+    }
+
+    /**
+     * EntityManagerFactory depends on Flyway (via parameter injection) so that
+     * all database migrations are applied before Hibernate performs schema
+     * validation.
+     */
     @Bean
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
+    public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource, Flyway flyway) {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
-        em.setDataSource(dataSource());
+        em.setDataSource(dataSource);
         em.setPackagesToScan(
                 "com.evaluationservice.infrastructure.entity",
                 "com.evaluationservice.domain.entity");
@@ -86,9 +106,9 @@ public class DatabaseConfig {
     }
 
     @Bean
-    public JpaTransactionManager transactionManager() {
+    public JpaTransactionManager transactionManager(LocalContainerEntityManagerFactoryBean entityManagerFactory) {
         JpaTransactionManager transactionManager = new JpaTransactionManager();
-        transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());
+        transactionManager.setEntityManagerFactory(entityManagerFactory.getObject());
 
         return transactionManager;
     }

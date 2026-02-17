@@ -13,6 +13,11 @@ eureka:
   client:
     service-url:
       defaultZone: http://eureka:8761/eureka/
+    healthcheck:
+      enabled: true
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
 
 management:
   zipkin:
