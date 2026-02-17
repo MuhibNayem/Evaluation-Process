@@ -272,7 +272,8 @@
                                                         value="OPEN_TEXT"
                                                         >Open Text</Select.Item
                                                     >
-                                                    <Select.Item value="RATING"
+                                                    <Select.Item
+                                                        value="NUMERIC_RATING"
                                                         >Rating (1-5)</Select.Item
                                                     >
                                                     <Select.Item value="BOOLEAN"

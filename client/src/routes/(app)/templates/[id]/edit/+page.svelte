@@ -311,7 +311,7 @@
                                                             >Open Text</Select.Item
                                                         >
                                                         <Select.Item
-                                                            value="RATING"
+                                                            value="NUMERIC_RATING"
                                                             >Rating (1-5)</Select.Item
                                                         >
                                                         <Select.Item
