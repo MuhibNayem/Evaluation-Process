@@ -8,16 +8,9 @@
     import { Label } from "$lib/components/ui/label/index.js";
     import { Textarea } from "$lib/components/ui/textarea/index.js";
     import { Checkbox } from "$lib/components/ui/checkbox/index.js";
-    import * as Select from "$lib/components/ui/select/index.js";
+
     import { toast } from "svelte-sonner";
-    import { Loader2, ArrowLeft } from "lucide-svelte";
-    import {
-        DateFormatter,
-        type DateValue,
-        getLocalTimeZone,
-        parseDate,
-        today,
-    } from "@internationalized/date";
+    import { Loader2, ArrowLeft } from "@lucide/svelte";
 
     // Since we don't have a date picker component setup yet in the plan, I'll use simple HTML date inputs for now or text inputs.
     // Actually, Shadcn has a Calendar but setting it up might be complex in one go.

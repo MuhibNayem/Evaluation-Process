@@ -4,8 +4,9 @@
     import api from "$lib/api.js";
     import { goto } from "$app/navigation";
     import EvaluationForm from "$lib/components/evaluation/EvaluationForm.svelte";
-    import { Loader2, ArrowLeft } from "@lucide/svelte";
+    import { Loader2, ArrowLeft, Flag, Ban } from "@lucide/svelte";
     import { Button } from "$lib/components/ui/button/index.js";
+    import { toast } from "svelte-sonner";
 
     import { Badge } from "$lib/components/ui/badge/index.js";
 
@@ -14,6 +15,7 @@
 
     let isLoading = $state(true);
     let isSubmitting = $state(false);
+    let processingAction = $state(false);
     let error = $state<string | null>(null);
 
     let evaluation = $state<any>(null);
@@ -31,7 +33,9 @@
             // Determine mode
             if (
                 evaluation.status === "COMPLETED" ||
-                evaluation.status === "SUBMITTED"
+                evaluation.status === "SUBMITTED" ||
+                evaluation.status === "FLAGGED" ||
+                evaluation.status === "INVALIDATED"
             ) {
                 mode = "view";
             } else {
@@ -58,6 +62,7 @@
         } catch (err) {
             console.error(err);
             error = "Failed to load evaluation.";
+            toast.error("Failed to load evaluation");
         } finally {
             isLoading = false;
         }
@@ -84,41 +89,96 @@
             await api.put(`/evaluations/${evaluationId}`, payload);
             // Reload data to reflect changes
             await fetchData();
-            // Show success ?
-            alert("Evaluation saved successfully!");
+            toast.success("Evaluation saved!");
         } catch (err: any) {
             console.error(err);
             error = "Failed to submit evaluation.";
+            toast.error("Failed to submit evaluation");
         } finally {
             isSubmitting = false;
+        }
+    }
+
+    async function handleFlag() {
+        if (!confirm("Are you sure you want to flag this evaluation?")) return;
+        processingAction = true;
+        try {
+            await api.post(`/evaluations/${evaluationId}/flag`);
+            await fetchData();
+            toast.success("Evaluation flagged.");
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to flag evaluation.");
+        } finally {
+            processingAction = false;
+        }
+    }
+
+    async function handleInvalidate() {
+        if (!confirm("Are you sure you want to invalidate this evaluation?"))
+            return;
+        processingAction = true;
+        try {
+            await api.post(`/evaluations/${evaluationId}/invalidate`);
+            await fetchData();
+            toast.success("Evaluation invalidated.");
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to invalidate evaluation.");
+        } finally {
+            processingAction = false;
         }
     }
 </script>
 
 <div class="flex flex-col gap-6 max-w-4xl mx-auto pb-20">
-    <div class="flex items-center gap-4">
-        <Button
-            variant="ghost"
-            size="icon"
-            href="/evaluations"
-            onclick={() => goto("/evaluations")}
-        >
-            <ArrowLeft class="h-4 w-4" />
-        </Button>
-        <div>
-            <h1 class="text-lg font-semibold md:text-2xl">
-                {mode === "view" ? "View Evaluation" : "Edit Evaluation"}
-            </h1>
-            {#if evaluation}
-                <Badge
-                    variant={evaluation.status === "COMPLETED"
-                        ? "default"
-                        : "outline"}
-                >
-                    {evaluation.status}
-                </Badge>
-            {/if}
+    <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <Button
+                variant="ghost"
+                size="icon"
+                href="/evaluations"
+                onclick={() => goto("/evaluations")}
+            >
+                <ArrowLeft class="h-4 w-4" />
+            </Button>
+            <div>
+                <h1 class="text-lg font-semibold md:text-2xl">
+                    {mode === "view" ? "View Evaluation" : "Edit Evaluation"}
+                </h1>
+                {#if evaluation}
+                    <Badge
+                        variant={evaluation.status === "COMPLETED"
+                            ? "default"
+                            : "outline"}
+                    >
+                        {evaluation.status}
+                    </Badge>
+                {/if}
+            </div>
         </div>
+        {#if evaluation && mode === "view" && evaluation.status !== "INVALIDATED"}
+            <div class="flex gap-2">
+                {#if evaluation.status !== "FLAGGED"}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={handleFlag}
+                        disabled={processingAction}
+                    >
+                        <Flag class="mr-2 h-4 w-4" /> Flag
+                    </Button>
+                {/if}
+                <Button
+                    variant="destructive"
+                    size="sm"
+                    onclick={handleInvalidate}
+                    disabled={processingAction}
+                >
+                    <Ban class="mr-2 h-4 w-4" /> Invalidate
+                </Button>
+            </div>
+        {/if}
     </div>
 
     {#if isLoading}

@@ -18,13 +18,30 @@
         StopCircle,
         Calendar,
         Users,
+        CalendarClock,
+        UserPlus,
     } from "@lucide/svelte";
+    import { Input } from "$lib/components/ui/input/index.js";
+    import {
+        Select,
+        SelectContent,
+        SelectItem,
+        SelectTrigger,
+    } from "$lib/components/ui/select/index.js";
 
     let campaignId = $state($page.params.id);
     let campaign = $state<any>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let isProcessing = $state(false);
+
+    // Dialog states
+    let showExtendDialog = $state(false);
+    let newEndDate = $state("");
+    let showAssignDialog = $state(false);
+    let assignEvaluatorId = $state("");
+    let assignEvaluateeId = $state("");
+    let assignRole = $state("PEER");
 
     async function fetchCampaign() {
         loading = true;
@@ -43,6 +60,66 @@
     onMount(() => {
         fetchCampaign();
     });
+
+    async function handleExtendDeadline() {
+        if (!newEndDate) return;
+        isProcessing = true;
+        try {
+            const res = await api.post(
+                `/campaigns/${campaignId}/extend-deadline`,
+                {
+                    newEndDate: new Date(newEndDate).toISOString(),
+                },
+            );
+            campaign = res.data;
+            toast.success("Deadline extended.");
+            showExtendDialog = false;
+        } catch (err: any) {
+            toast.error(
+                "Failed to extend deadline: " +
+                    (err.response?.data?.detail || "Unknown error"),
+            );
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    async function handleAddAssignments() {
+        if (!assignEvaluatorId || !assignEvaluateeId) {
+            toast.error("Please fill in all fields");
+            return;
+        }
+        isProcessing = true;
+        try {
+            const payload = {
+                assignments: [
+                    {
+                        evaluatorId: assignEvaluatorId,
+                        evaluateeId: assignEvaluateeId,
+                        evaluatorRole: assignRole,
+                    },
+                ],
+            };
+            const res = await api.post(
+                `/campaigns/${campaignId}/assignments`,
+                payload,
+            );
+            campaign = res.data;
+            toast.success("Assignments added.");
+            showAssignDialog = false;
+            // Clear fields
+            assignEvaluatorId = "";
+            assignEvaluateeId = "";
+            assignRole = "PEER";
+        } catch (err: any) {
+            toast.error(
+                "Failed to add assignments: " +
+                    (err.response?.data?.detail || "Unknown error"),
+            );
+        } finally {
+            isProcessing = false;
+        }
+    }
 
     async function handleActivate() {
         isProcessing = true;
@@ -282,7 +359,148 @@
         <div class="grid gap-6 md:grid-cols-2">
             <Card.Root>
                 <Card.Header>
-                    <Card.Title>Details</Card.Title>
+                    <div class="flex items-center justify-between">
+                        <Card.Title>Details</Card.Title>
+                        {#if campaign.status === "ACTIVE"}
+                            <div class="flex gap-2">
+                                <AlertDialog.Root bind:open={showExtendDialog}>
+                                    <AlertDialog.Trigger>
+                                        <Button variant="outline" size="sm">
+                                            <CalendarClock
+                                                class="mr-2 h-4 w-4"
+                                            /> Extend
+                                        </Button>
+                                    </AlertDialog.Trigger>
+                                    <AlertDialog.Content>
+                                        <AlertDialog.Header>
+                                            <AlertDialog.Title
+                                                >Extend Deadline</AlertDialog.Title
+                                            >
+                                            <AlertDialog.Description>
+                                                Choose a new end date for this
+                                                campaign.
+                                            </AlertDialog.Description>
+                                        </AlertDialog.Header>
+                                        <div class="py-4">
+                                            <div class="grid gap-2">
+                                                <label
+                                                    for="end-date"
+                                                    class="text-sm font-medium"
+                                                    >New End Date</label
+                                                >
+                                                <Input
+                                                    type="datetime-local"
+                                                    id="end-date"
+                                                    bind:value={newEndDate}
+                                                />
+                                            </div>
+                                        </div>
+                                        <AlertDialog.Footer>
+                                            <AlertDialog.Cancel
+                                                >Cancel</AlertDialog.Cancel
+                                            >
+                                            <AlertDialog.Action
+                                                onclick={handleExtendDeadline}
+                                                >Extend</AlertDialog.Action
+                                            >
+                                        </AlertDialog.Footer>
+                                    </AlertDialog.Content>
+                                </AlertDialog.Root>
+
+                                <AlertDialog.Root bind:open={showAssignDialog}>
+                                    <AlertDialog.Trigger>
+                                        <Button variant="outline" size="sm">
+                                            <UserPlus class="mr-2 h-4 w-4" /> Assign
+                                        </Button>
+                                    </AlertDialog.Trigger>
+                                    <AlertDialog.Content>
+                                        <AlertDialog.Header>
+                                            <AlertDialog.Title
+                                                >Add Assignment</AlertDialog.Title
+                                            >
+                                            <AlertDialog.Description>
+                                                Manually assign an evaluator to
+                                                an evaluatee.
+                                            </AlertDialog.Description>
+                                        </AlertDialog.Header>
+                                        <div class="py-4 grid gap-4">
+                                            <div class="grid gap-2">
+                                                <label
+                                                    for="evaluator-id"
+                                                    class="text-sm font-medium"
+                                                    >Evaluator ID/Username</label
+                                                >
+                                                <Input
+                                                    id="evaluator-id"
+                                                    placeholder="e.g. john.doe"
+                                                    bind:value={
+                                                        assignEvaluatorId
+                                                    }
+                                                />
+                                            </div>
+                                            <div class="grid gap-2">
+                                                <label
+                                                    for="evaluatee-id"
+                                                    class="text-sm font-medium"
+                                                    >Evaluatee ID/Username</label
+                                                >
+                                                <Input
+                                                    id="evaluatee-id"
+                                                    placeholder="e.g. jane.smith"
+                                                    bind:value={
+                                                        assignEvaluateeId
+                                                    }
+                                                />
+                                            </div>
+                                            <div class="grid gap-2">
+                                                <label
+                                                    for="role"
+                                                    class="text-sm font-medium"
+                                                    >Role</label
+                                                >
+                                                <Select
+                                                    type="single"
+                                                    bind:value={assignRole}
+                                                    onValueChange={(v) =>
+                                                        (assignRole = v)}
+                                                >
+                                                    <SelectTrigger>
+                                                        {assignRole ||
+                                                            "Select role"}
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="SELF"
+                                                            >Self</SelectItem
+                                                        >
+                                                        <SelectItem value="PEER"
+                                                            >Peer</SelectItem
+                                                        >
+                                                        <SelectItem
+                                                            value="MANAGER"
+                                                            >Manager</SelectItem
+                                                        >
+                                                        <SelectItem
+                                                            value="SUBORDINATE"
+                                                            >Subordinate</SelectItem
+                                                        >
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                        <AlertDialog.Footer>
+                                            <AlertDialog.Cancel
+                                                >Cancel</AlertDialog.Cancel
+                                            >
+                                            <AlertDialog.Action
+                                                onclick={handleAddAssignments}
+                                                >Add</AlertDialog.Action
+                                            >
+                                        </AlertDialog.Footer>
+                                    </AlertDialog.Content>
+                                </AlertDialog.Root>
+                            </div>
+                        {/if}
+                    </div>
                 </Card.Header>
                 <Card.Content class="space-y-4">
                     <div class="grid gap-1">
