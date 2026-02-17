@@ -25,9 +25,35 @@ public class ResponseMapper {
                 template.getCurrentVersion(),
                 template.getScoringMethod(),
                 template.getTotalQuestionCount(),
+                template.getSections().stream().map(this::toResponse).toList(),
                 template.getCreatedBy(),
                 template.getCreatedAt().value(),
                 template.getUpdatedAt().value());
+    }
+
+    private com.evaluationservice.api.dto.response.SectionResponse toResponse(
+            com.evaluationservice.domain.entity.Section section) {
+        return new com.evaluationservice.api.dto.response.SectionResponse(
+                section.getId(),
+                section.getTitle(),
+                section.getDescription(),
+                section.getOrderIndex(),
+                section.getWeight().value(),
+                section.getQuestions().stream().map(this::toResponse).toList());
+    }
+
+    private com.evaluationservice.api.dto.response.QuestionResponse toResponse(
+            com.evaluationservice.domain.entity.Question question) {
+        return new com.evaluationservice.api.dto.response.QuestionResponse(
+                question.getId(),
+                question.getText(),
+                question.getType(),
+                question.getOrderIndex(),
+                question.isRequired(),
+                question.getOptions(),
+                question.getWeight().value(),
+                question.getMetadata(),
+                question.getConditionalLogic());
     }
 
     public CampaignResponse toResponse(Campaign campaign) {

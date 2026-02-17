@@ -9,15 +9,16 @@ import java.time.Instant;
  * Response DTO for template data.
  */
 public record TemplateResponse(
-        String id,
-        String name,
-        String description,
-        String category,
-        TemplateStatus status,
-        int currentVersion,
-        ScoringMethod scoringMethod,
-        int totalQuestions,
-        String createdBy,
-        Instant createdAt,
-        Instant updatedAt) {
+                String id,
+                String name,
+                String description,
+                String category,
+                TemplateStatus status,
+                int currentVersion,
+                ScoringMethod scoringMethod,
+                int totalQuestions,
+                java.util.List<SectionResponse> sections,
+                String createdBy,
+                Instant createdAt,
+                Instant updatedAt) {
 }

@@ -5,6 +5,13 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+
+	optimizeDeps: {
+		include: ['svelte-sonner', 'mode-watcher', 'bits-ui']
+	},
+	ssr: {
+		noExternal: ['svelte-sonner', 'mode-watcher', 'bits-ui']
+	},
 	server: {
 		proxy: {
 			'/api/v1': {
