@@ -5,6 +5,7 @@
     import { Button } from "$lib/components/ui/button/index.js";
     import { Input } from "$lib/components/ui/input/index.js";
     import { Label } from "$lib/components/ui/label/index.js";
+    import DatePicker from "$lib/components/ui/date-picker/date-picker.svelte";
     import { Textarea } from "$lib/components/ui/textarea/index.js";
     import * as Select from "$lib/components/ui/select/index.js";
     import { Loader2, ArrowLeft } from "@lucide/svelte";
@@ -121,21 +122,11 @@
         <div class="grid grid-cols-2 gap-4">
             <div class="grid gap-2">
                 <Label for="startDate">Start Date</Label>
-                <Input
-                    id="startDate"
-                    type="date"
-                    bind:value={formData.startDate}
-                    required
-                />
+                <DatePicker bind:value={formData.startDate} />
             </div>
             <div class="grid gap-2">
                 <Label for="endDate">End Date</Label>
-                <Input
-                    id="endDate"
-                    type="date"
-                    bind:value={formData.endDate}
-                    required
-                />
+                <DatePicker bind:value={formData.endDate} />
             </div>
         </div>
 

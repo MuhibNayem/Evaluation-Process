@@ -4,6 +4,7 @@
     import api from "$lib/api.js";
     import { onMount } from "svelte";
     import { Button } from "$lib/components/ui/button/index.js";
+    import DatePicker from "$lib/components/ui/date-picker/date-picker.svelte";
     import { Badge } from "$lib/components/ui/badge/index.js";
     import * as Card from "$lib/components/ui/card/index.js";
     import { Separator } from "$lib/components/ui/separator/index.js";
@@ -388,9 +389,7 @@
                                                     class="text-sm font-medium"
                                                     >New End Date</label
                                                 >
-                                                <Input
-                                                    type="datetime-local"
-                                                    id="end-date"
+                                                <DatePicker
                                                     bind:value={newEndDate}
                                                 />
                                             </div>

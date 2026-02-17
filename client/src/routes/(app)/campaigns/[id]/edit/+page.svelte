@@ -10,6 +10,7 @@
     import { Checkbox } from "$lib/components/ui/checkbox/index.js";
 
     import { toast } from "svelte-sonner";
+    import DatePicker from "$lib/components/ui/date-picker/date-picker.svelte";
     import { Loader2, ArrowLeft } from "@lucide/svelte";
 
     // Since we don't have a date picker component setup yet in the plan, I'll use simple HTML date inputs for now or text inputs.
@@ -130,24 +131,17 @@
                 />
             </div>
 
+            import {DatePicker} from "$lib/components/ui/date-picker/index.js"; //
+            ... (rest of code)
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="grid gap-2">
                     <Label for="startDate">Start Date</Label>
-                    <Input
-                        type="datetime-local"
-                        id="startDate"
-                        bind:value={startDate}
-                        required
-                    />
+                    <DatePicker bind:value={startDate} />
                 </div>
                 <div class="grid gap-2">
                     <Label for="endDate">End Date</Label>
-                    <Input
-                        type="datetime-local"
-                        id="endDate"
-                        bind:value={endDate}
-                        required
-                    />
+                    <DatePicker bind:value={endDate} />
                 </div>
             </div>
 
