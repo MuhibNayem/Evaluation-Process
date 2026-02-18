@@ -1,6 +1,7 @@
 package com.evaluationservice.application.service;
 
 import com.evaluationservice.application.port.in.EvaluationSubmissionUseCase;
+import com.evaluationservice.application.port.out.AssignmentPersistencePort;
 import com.evaluationservice.application.port.out.CampaignPersistencePort;
 import com.evaluationservice.application.port.out.EvaluationPersistencePort;
 import com.evaluationservice.application.port.out.TemplatePersistencePort;
@@ -8,7 +9,6 @@ import com.evaluationservice.domain.entity.Evaluation;
 import com.evaluationservice.domain.entity.SectionScore;
 import com.evaluationservice.domain.entity.Template;
 import com.evaluationservice.domain.enums.EvaluationStatus;
-import com.evaluationservice.domain.exception.DuplicateSubmissionException;
 import com.evaluationservice.domain.exception.EntityNotFoundException;
 import com.evaluationservice.domain.value.CampaignId;
 import com.evaluationservice.domain.value.EvaluationId;
@@ -32,6 +32,7 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
 
     private final EvaluationPersistencePort evaluationPersistencePort;
     private final CampaignPersistencePort campaignPersistencePort;
+    private final AssignmentPersistencePort assignmentPersistencePort;
     private final TemplatePersistencePort templatePersistencePort;
     private final ScoringService scoringService;
     private final ApplicationEventPublisher eventPublisher;
@@ -39,11 +40,13 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
     public EvaluationSubmissionService(
             EvaluationPersistencePort evaluationPersistencePort,
             CampaignPersistencePort campaignPersistencePort,
+            AssignmentPersistencePort assignmentPersistencePort,
             TemplatePersistencePort templatePersistencePort,
             ScoringService scoringService,
             ApplicationEventPublisher eventPublisher) {
         this.evaluationPersistencePort = Objects.requireNonNull(evaluationPersistencePort);
         this.campaignPersistencePort = Objects.requireNonNull(campaignPersistencePort);
+        this.assignmentPersistencePort = Objects.requireNonNull(assignmentPersistencePort);
         this.templatePersistencePort = Objects.requireNonNull(templatePersistencePort);
         this.scoringService = Objects.requireNonNull(scoringService);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
@@ -61,6 +64,7 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
         var campaign = campaignPersistencePort.findById(command.campaignId())
                 .orElseThrow(() -> new EntityNotFoundException("Campaign", command.campaignId().value()));
         campaign.ensureActive();
+        validateAssignmentOwnership(command, campaign);
 
         // Get template for scoring
         var template = templatePersistencePort.findById(
@@ -96,6 +100,12 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
         evaluation.complete(totalScore, sectionScores);
 
         Evaluation saved = evaluationPersistencePort.save(evaluation);
+        assignmentPersistencePort.markCompleted(command.assignmentId(), saved.getId().value());
+        campaign.getAssignments().stream()
+                .filter(a -> a.getId().equals(command.assignmentId()))
+                .findFirst()
+                .ifPresent(a -> a.markCompleted(saved.getId().value()));
+        campaignPersistencePort.save(campaign);
 
         // Publish domain event
         eventPublisher.publishEvent(
@@ -147,5 +157,20 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
     private Evaluation findEvaluationOrThrow(EvaluationId evaluationId) {
         return evaluationPersistencePort.findById(evaluationId)
                 .orElseThrow(() -> new EntityNotFoundException("Evaluation", evaluationId.value()));
+    }
+
+    private void validateAssignmentOwnership(SubmitEvaluationCommand command, com.evaluationservice.domain.entity.Campaign campaign) {
+        boolean valid = assignmentPersistencePort.findById(command.assignmentId())
+                .map(assignment -> assignment.getCampaignId().equals(command.campaignId())
+                        && assignment.getEvaluatorId().equals(command.evaluatorId())
+                        && assignment.getEvaluateeId().equals(command.evaluateeId()))
+                .orElseGet(() -> campaign.getAssignments().stream()
+                        .anyMatch(assignment -> assignment.getId().equals(command.assignmentId())
+                                && assignment.getEvaluatorId().equals(command.evaluatorId())
+                                && assignment.getEvaluateeId().equals(command.evaluateeId())));
+
+        if (!valid) {
+            throw new IllegalArgumentException("Assignment does not match campaign/evaluator/evaluatee");
+        }
     }
 }

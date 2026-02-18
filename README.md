@@ -1,152 +1,168 @@
 # Evaluation Service
 
-A high-performance, scalable microservice for managing evaluation campaigns, submissions, and reporting. Built with **Java 25** and **Spring Boot 4**, leveraging virtual threads for optimal concurrency and a hexagonal architecture for maintainability.
+Production-grade evaluation orchestration service with dynamic assignment, canonical audience ingestion, rule governance, and auditable admin control-plane workflows.
 
-## 🚀 Key Features
+## What This Service Does
 
-*   **Dynamic Campaign Management**: Create, activate, and manage evaluation campaigns with customizable templates and scoring rules.
-*   **Flexible Templates**: Define evaluation structures with weighted sections, custom formulas, and version control.
-*   **Advanced Scoring**: Support for weighted averages, custom formulas, and partial credit.
-*   **Real-time Reporting**: Generate individual and campaign-level reports with CSV and PDF export capabilities.
-*   **System-Wide Configuration**: Admin-configurable settings with campaign-level overrides.
-*   **High Performance**: Utilizes **Java 25 Virtual Threads** for non-blocking I/O and **Redis** for caching.
-*   **Security**: Role-based access control (RBAC) secured with JWT authentication.
-*   **Resilience**: Circuit breakers (Resilience4j) and robust error handling for external integrations.
+1. Manages template and campaign lifecycles.
+2. Generates evaluator-evaluatee assignments dynamically from configurable sources/rules.
+3. Accepts evaluation submissions and scoring flows.
+4. Provides reporting and dashboard summaries.
+5. Supports no-code audience onboarding through connectors + mapping profiles + validation profiles.
+6. Provides governed rule-definition lifecycle with approval workflow and audit/outbox events.
 
-## 🏗️ Architecture
+## Implementation Status
 
-The service follows a **Hexagonal Architecture (Ports and Adapters)** to decouple business logic from infrastructure concerns.
+Phases completed in codebase:
+1. Phase 1: Assignment relational migration, parity checks, backfill.
+2. Phase 2: Submission integrity and assignment completion consistency.
+3. Phase 3: Canonical audience model, ingestion connectors, replay, retention, outbox dispatcher.
+4. Phase 4: Rule control plane (versioned rule definitions, simulation, publish pipeline).
+5. Phase 5: Admin guardrails (4-eyes, publish lock), RBAC-protected control plane, audit logging.
 
-*   **Domain Layer**: Core business logic, entities (`Campaign`, `Evaluation`, `Template`), and value objects. Dependency-free.
-*   **Application Layer**: Use case implementations (`CampaignManagementService`, `EvaluationSubmissionService`) orchestrating domain objects.
-*   **API Layer (Inbound Adapters)**: REST Controllers exposing functionality via HTTP.
-*   **Infrastructure Layer (Outbound Adapters)**:
-    *   **Persistence**: PostgreSQL with Spring Data JPA.
-    *   **Caching**: Redis for session and entity caching.
-    *   **Notifications**: Async Webhook integration via OpenFeign.
-    *   **Configuration**: Dynamic properties via `SystemSettingsWithOverrides`.
+Primary references:
+1. Runbook: `docs/SYSTEM_RUNBOOK_PHASE1_TO_5.md`
+2. API docs: `docs/API_DOCUMENTATION.md`
+3. OpenAPI: `docs/openapi.yaml`
+4. Redesign plan log: `docs/PRODUCTION_REDESIGN_IMPLEMENTATION_PLAN.md`
 
-## 🛠️ Technology Stack
+## Tech Stack
 
-*   **Language**: Java 25 (Virtual Threads, Records, Pattern Matching)
-*   **Framework**: Spring Boot 4.0.1
-*   **Database**: PostgreSQL 16
-*   **Cache**: Redis 7
-*   **Build Tool**: Gradle 8.5
-*   **Observability**: Micrometer, Prometheus, Grafana, Loki, Zipkin
-*   **Testing**: JUnit 5, Testcontainers
+1. Java 25 (preview enabled)
+2. Spring Boot 4.0.1
+3. PostgreSQL + Flyway
+4. Redis cache
+5. Spring Security (JWT resource-server mode + dev-mode local bypass)
+6. Observability: Micrometer, Prometheus, Grafana, Loki, Zipkin
+7. Messaging integrations: webhook, Kafka, RabbitMQ via outbox transport
 
-## 📋 Prerequisites
+## Architecture
 
-*   **Java 25 SDK** installed
-*   **Docker** and **Docker Compose**
-*   **Gradle 8.x** (or use generic wrapper)
+Hexagonal layering:
+1. Domain: entities, rules, invariants, value objects.
+2. Application: use-case services (campaign, evaluation, ingestion, scoring).
+3. API: REST controllers and DTO contracts.
+4. Infrastructure: repositories, schedulers, outbox dispatcher, adapters.
 
-## 🚀 Getting Started
+Key backend folders:
+1. `src/main/java/com/evaluationservice/api/controller`
+2. `src/main/java/com/evaluationservice/application/service`
+3. `src/main/java/com/evaluationservice/domain`
+4. `src/main/java/com/evaluationservice/infrastructure`
+5. `src/main/resources/db/migration`
 
-### 1. Clone the Repository
+## Authentication Model
+
+This service can run in two modes:
+
+1. Development mode (`evaluation.service.security.dev-mode=true`):
+2. Request auth is bypassed for productivity.
+3. Mock login endpoint enabled: `POST /api/v1/auth/login`.
+
+4. Secured mode (`evaluation.service.security.dev-mode=false`):
+5. JWT auth enforced by resource-server security filter chain.
+6. Rule control plane requires `ROLE_ADMIN`.
+
+Note:
+1. In production, authentication is expected to be provided by a dedicated external auth service/issuer.
+
+## Quick Start
+
+### Prerequisites
+
+1. Java 25 SDK
+2. Docker + Docker Compose
+
+### Start dependencies
+
 ```bash
-git clone <repository-url>
-cd evaluation-service
+docker-compose up -d postgres redis prometheus loki promtail grafana zipkin
 ```
 
-### 2. Start Infrastructure
-Start PostgreSQL, Redis, and observability tools using Docker Compose:
-```bash
-docker-compose up -d postgres redis eureka zipkin prometheus loki promtail grafana
-```
+### Build and run
 
-### 3. Build the Application
 ```bash
 ./gradlew clean build
-```
-
-### 4. Run the Application
-```bash
-java -jar build/libs/evaluation-service-1.0.0.jar
-```
-*Alternatively, run with Gradle:*
-```bash
 ./gradlew bootRun
 ```
 
-The application will start on **port 8080**.
+Service URL:
+1. `http://localhost:8080`
 
-## ⚙️ Configuration
+## Core API Surface
 
-The service is configured via `application.yml`. Key customizable properties:
+### Campaigns
 
-| Property | Default | Description |
-| :--- | :--- | :--- |
-| `server.port` | `8080` | HTTP server port |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/...` | Database URL |
-| `spring.data.redis.host` | `localhost` | Redis host |
-| `spring.threads.virtual.enabled` | `true` | Enable Virtual Threads |
-| `evaluation.service.features.enable-reports` | `true` | Enable report generation |
-| `evaluation.service.notification.webhook-url` | *empty* | URL for webhook notifications |
+1. `POST /api/v1/campaigns`
+2. `POST /api/v1/campaigns/{id}/assignments/dynamic`
+3. `GET /api/v1/campaigns/{id}/assignments/reconcile`
+4. `POST /api/v1/campaigns/assignments/backfill`
 
-### Dynamic System Settings
-Admins can override specific defaults at runtime without restarting via the `/api/v1/admin/settings` endpoints.
+### Evaluations
 
-## 📖 API Documentation
+1. `POST /api/v1/evaluations`
+2. `PUT /api/v1/evaluations/{id}`
 
-The service exposes a comprehensive REST API. 
-**[View Full API Documentation](docs/API_DOCUMENTATION.md)**  
-**[OpenAPI Specification](docs/openapi.yaml)**
+### Audience Ingestion
 
-### Core Endpoints
-*   `POST /api/v1/auth/login`: Retrieve JWT token (mock login for dev/test)
-*   `GET /api/v1/campaigns`: List active campaigns
-*   `GET /api/v1/campaigns/assignments/me`: List current evaluator assignments
-*   `POST /api/v1/evaluations`: Submit an evaluation
-*   `PUT /api/v1/evaluations/{id}`: Save draft/update an evaluation
-*   `GET /api/v1/reports/campaign/{id}`: Get campaign performance report
-*   `POST /api/v1/templates`: Create a new evaluation template
+1. `POST /api/v1/audience/ingest`
+2. `POST /api/v1/audience/ingestion-runs/{runId}/replay`
+3. Mapping profile APIs under `/api/v1/audience/mapping-profiles`
 
-## 🩺 Monitoring & Observability
+### Rule Control Plane
 
-*   **Health Check**: `GET /actuator/health`
-*   **Metrics (Prometheus)**: `GET /actuator/prometheus`
-*   **Info**: `GET /actuator/info`
-*   **Prometheus UI**: `http://localhost:9090`
-*   **Grafana UI**: `http://localhost:3000` (admin/admin)
-*   **Zipkin UI (traces)**: `http://localhost:9411`
-*   **Loki API (logs backend)**: `http://localhost:3100`
+1. `POST /api/v1/admin/rules`
+2. `POST /api/v1/admin/rules/{id}/publish-requests`
+3. `POST /api/v1/admin/rules/publish-requests/{publishRequestId}/approve`
+4. `POST /api/v1/admin/rules/{id}/simulate`
+5. `POST /api/v1/admin/rules/{id}/publish-assignments`
 
-### Trace vs Log
-Zipkin is for **distributed traces**, not raw logs.  
-For logs, use Grafana Explore with the **Loki** datasource.  
-For correlation, application logs include `trace` and `span` IDs, and Grafana links those IDs to Zipkin traces.
+## Configuration Highlights
 
-## 📦 Deployment
+Main config: `src/main/resources/application.yml`
 
-### Docker
-Build and run the containerized image:
+High-impact keys:
+1. `evaluation.service.security.dev-mode`
+2. `evaluation.service.assignment.storage-mode`
+3. `evaluation.service.assignment.reconciliation-*`
+4. `evaluation.service.audience.validation-profiles.*`
+5. `evaluation.service.audience.retention.*`
+6. `evaluation.service.audience.outbox.*`
+7. `evaluation.service.admin.publish-lock-enabled`
+8. `evaluation.service.admin.require-four-eyes-approval`
+9. `evaluation.service.features.enable-reports`
+10. `evaluation.service.features.enable-csv-export`
+11. `evaluation.service.features.enable-pdf-export`
+
+## Operations and Observability
+
+Important endpoints:
+1. Health: `GET /actuator/health`
+2. Prometheus: `GET /actuator/prometheus`
+3. Info: `GET /actuator/info`
+
+Local UIs:
+1. Prometheus: `http://localhost:9090`
+2. Grafana: `http://localhost:3000`
+3. Zipkin: `http://localhost:9411`
+4. Loki: `http://localhost:3100`
+
+## Testing
+
+Run full tests:
+
 ```bash
-docker build -t evaluation-service .
-docker run -p 8080:8080 -e DB_PASSWORD=secret evaluation-service
+./gradlew test
 ```
 
-### Kubernetes (Ready)
-The application includes:
-*   **Liveness Probe**: `/actuator/health/liveness`
-*   **Readiness Probe**: `/actuator/health/readiness`
-*   **Graceful Shutdown**: Enabled by default
+Run targeted tests:
 
-## 🚨 Troubleshooting
+```bash
+./gradlew test --tests com.evaluationservice.infrastructure.service.RuleControlPlaneServiceTest
+```
 
-*   **Database Connection Failed**: Ensure PostgreSQL is running and credentials in `application.yml` match.
-*   **Redis Connection Refused**: generic `RedisConnectionException` usually means Redis container is not reachable. Check `docker ps`.
-*   **Virtual Threads Not Used**: verify `spring.threads.virtual.enabled=true` and run on Java 21+.
+## Notes for Integrators
 
-## 🤝 Contributing
-
-1.  Fork the repository.
-2.  Create a feature branch (`git checkout -b feature/amazing-feature`).
-3.  Commit your changes (`git commit -m 'Add some amazing feature'`).
-4.  Push to the branch (`git push origin feature/amazing-feature`).
-5.  Open a Pull Request.
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+1. For exact request/response schemas, rely on `docs/openapi.yaml`.
+2. For operational behavior and policy details, use `docs/SYSTEM_RUNBOOK_PHASE1_TO_5.md`.
+3. For API usage examples, use `docs/API_DOCUMENTATION.md`.

@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
 
 public record UpdateCampaignRequest(
@@ -17,5 +18,9 @@ public record UpdateCampaignRequest(
         ScoringMethod scoringMethod,
         Boolean anonymousMode,
         Set<EvaluatorRole> anonymousRoles,
+        String audienceSourceType,
+        Map<String, Object> audienceSourceConfig,
+        String assignmentRuleType,
+        Map<String, Object> assignmentRuleConfig,
         Integer minimumRespondents) {
 }

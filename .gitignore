@@ -62,3 +62,7 @@ bin/
 .env
 .env.local
 .env.*.local
+
+
+# Logs
+logs/

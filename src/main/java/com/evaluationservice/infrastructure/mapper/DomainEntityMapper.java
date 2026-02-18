@@ -74,6 +74,10 @@ public class DomainEntityMapper {
         entity.setAnonymousMode(domain.isAnonymousMode());
         entity.setAnonymousRolesJson(serializeEnumSet(domain.getAnonymousRoles()));
         entity.setMinimumRespondents(domain.getMinimumRespondents());
+        entity.setAudienceSourceType(domain.getAudienceSourceType());
+        entity.setAudienceSourceConfigJson(toJson(domain.getAudienceSourceConfig()));
+        entity.setAssignmentRuleType(domain.getAssignmentRuleType());
+        entity.setAssignmentRuleConfigJson(toJson(domain.getAssignmentRuleConfig()));
         entity.setAssignmentsJson(serializeAssignments(domain.getAssignments()));
         entity.setCreatedBy(domain.getCreatedBy());
         entity.setCreatedAt(domain.getCreatedAt().value());
@@ -95,6 +99,10 @@ public class DomainEntityMapper {
                 entity.isAnonymousMode(),
                 anonymousRoles,
                 entity.getMinimumRespondents(),
+                entity.getAudienceSourceType(),
+                deserializeObjectMap(entity.getAudienceSourceConfigJson()),
+                entity.getAssignmentRuleType(),
+                deserializeObjectMap(entity.getAssignmentRuleConfigJson()),
                 deserializeAssignments(entity.getAssignmentsJson(), CampaignId.of(entity.getId())),
                 entity.getCreatedBy(),
                 new Timestamp(entity.getCreatedAt()),
@@ -286,6 +294,18 @@ public class DomainEntityMapper {
             });
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to deserialize section scores", e);
+        }
+    }
+
+    private Map<String, Object> deserializeObjectMap(String json) {
+        if (json == null || json.isBlank()) {
+            return new LinkedHashMap<>();
+        }
+        try {
+            return JSON.readValue(json, new TypeReference<>() {
+            });
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to deserialize object map", e);
         }
     }
 

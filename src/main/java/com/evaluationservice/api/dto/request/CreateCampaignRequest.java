@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -21,5 +22,9 @@ public record CreateCampaignRequest(
         ScoringMethod scoringMethod,
         boolean anonymousMode,
         Set<EvaluatorRole> anonymousRoles,
+        String audienceSourceType,
+        Map<String, Object> audienceSourceConfig,
+        String assignmentRuleType,
+        Map<String, Object> assignmentRuleConfig,
         int minimumRespondents) {
 }

@@ -4,6 +4,7 @@ import com.evaluationservice.domain.enums.CampaignStatus;
 import com.evaluationservice.domain.enums.ScoringMethod;
 
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * Response DTO for campaign data.
@@ -19,6 +20,10 @@ public record CampaignResponse(
         Instant endDate,
         ScoringMethod scoringMethod,
         boolean anonymousMode,
+        String audienceSourceType,
+        Map<String, Object> audienceSourceConfig,
+        String assignmentRuleType,
+        Map<String, Object> assignmentRuleConfig,
         int totalAssignments,
         long completedAssignments,
         double completionPercentage,

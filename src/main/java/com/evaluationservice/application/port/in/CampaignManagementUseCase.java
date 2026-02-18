@@ -10,6 +10,7 @@ import com.evaluationservice.domain.value.TemplateId;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -26,6 +27,10 @@ public interface CampaignManagementUseCase {
                         ScoringMethod scoringMethod,
                         boolean anonymousMode,
                         Set<EvaluatorRole> anonymousRoles,
+                        String audienceSourceType,
+                        Map<String, Object> audienceSourceConfig,
+                        String assignmentRuleType,
+                        Map<String, Object> assignmentRuleConfig,
                         int minimumRespondents,
                         String createdBy) {
         }
@@ -44,7 +49,29 @@ public interface CampaignManagementUseCase {
                         ScoringMethod scoringMethod,
                         boolean anonymousMode,
                         Set<EvaluatorRole> anonymousRoles,
+                        String audienceSourceType,
+                        Map<String, Object> audienceSourceConfig,
+                        String assignmentRuleType,
+                        Map<String, Object> assignmentRuleConfig,
                         int minimumRespondents) {
+        }
+
+        record DynamicAssignmentCommand(
+                        String audienceSourceType,
+                        Map<String, Object> audienceSourceConfig,
+                        String assignmentRuleType,
+                        Map<String, Object> assignmentRuleConfig,
+                        boolean replaceExistingAssignments,
+                        boolean dryRun) {
+        }
+
+        record DynamicAssignmentResult(
+                        Campaign campaign,
+                        List<CampaignAssignment> generatedAssignments,
+                        String audienceSourceType,
+                        String assignmentRuleType,
+                        boolean replaceExistingAssignments,
+                        boolean dryRun) {
         }
 
         Campaign createCampaign(CreateCampaignCommand command);
@@ -60,6 +87,8 @@ public interface CampaignManagementUseCase {
         Campaign extendDeadline(CampaignId campaignId, Instant newEndDate);
 
         Campaign addAssignments(CampaignId campaignId, List<AssignmentEntry> assignments);
+
+        DynamicAssignmentResult generateDynamicAssignments(CampaignId campaignId, DynamicAssignmentCommand command);
 
         Campaign getCampaign(CampaignId campaignId);
 

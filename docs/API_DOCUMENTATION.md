@@ -1,14 +1,60 @@
-# API Documentation v1.1
+# API Documentation v1.2
 
-**Base URL**: `http://localhost:8080`  
-**Content-Type**: `application/json`
+## Changelog (v1.1 -> v1.2)
 
-## Authentication
+Release context:
+1. Align documentation with implemented backend redesign through Phase 5.
 
-### Token endpoint
+Added endpoint groups:
+1. Audience ingestion APIs under `/api/v1/audience/**`:
+2. Ingest, run listing/details, rejection listing, replay.
+3. Mapping profile CRUD/lifecycle/validation APIs.
+4. Rule control plane APIs under `/api/v1/admin/rules/**`:
+5. Rule draft create/update/list/get.
+6. Publish request workflow (request/approve/reject).
+7. Rule deprecate, simulation, publish assignments, capabilities.
+8. Assignment migration safety endpoints:
+9. `GET /api/v1/campaigns/{id}/assignments/reconcile`
+10. `GET /api/v1/campaigns/assignments/reconcile/report`
+11. `POST /api/v1/campaigns/assignments/backfill`
+12. Dashboard stats endpoint:
+13. `GET /api/v1/dashboard/stats`
+
+Updated endpoint coverage:
+1. Template update documented: `PUT /api/v1/templates/{id}`.
+2. Admin settings and campaign override routes documented fully.
+3. Dynamic assignment docs aligned with supported runtime rule types and source types.
+
+Schema/contract updates:
+1. Request/response contracts now reflect current DTOs for all implemented controllers.
+2. Rule and assignment governance payloads documented (simulation, publish request/decision, capabilities).
+3. Audience ingestion payloads documented with `sourceConfig`, `mappingProfileId`, and replay options.
+
+Auth and behavior clarifications:
+1. Documented dev-mode authentication bypass behavior explicitly.
+2. Documented `ROLE_ADMIN` requirement for rule control-plane endpoints.
+3. Documented report endpoint feature-flag behavior (`403` when disabled).
+
+Base URL: `http://localhost:8080`  
+Content-Type: `application/json`
+
+## Authentication and Authorization
+
+Auth in this service is environment-dependent:
+1. `evaluation.service.security.dev-mode=true`:
+2. All routes are permitted.
+3. Mock login endpoint is active: `POST /api/v1/auth/login`.
+4. `evaluation.service.security.dev-mode=false`:
+5. JWT auth is enforced for protected routes.
+6. Send `Authorization: Bearer <token>`.
+
+Admin-only APIs:
+1. `/api/v1/admin/rules/**` requires `ROLE_ADMIN` (method-level guard).
+
+### Mock login (dev mode only)
 - `POST /api/v1/auth/login`
 
-Request body:
+Request:
 ```json
 {
   "username": "admin",
@@ -16,65 +62,47 @@ Request body:
 }
 ```
 
-Success response:
+Supported credentials:
+1. `admin/admin`
+2. `evaluator/evaluator`
+3. `evaluatee/evaluatee`
+
+Response:
 ```json
 {
   "token": "<jwt-token>"
 }
 ```
 
-Mock users currently supported:
-- `admin/admin`
-- `evaluator/evaluator`
-- `evaluatee/evaluatee`
-
-### Auth behavior by environment
-- In dev/testing, `evaluation.service.security.dev-mode=true` permits all requests.
-- In secured mode, send:
-```http
-Authorization: Bearer <jwt-token>
-```
-
 ---
 
-## Campaigns
+## Campaign APIs
 
 ### Create campaign
 - `POST /api/v1/campaigns`
 
-```json
-{
-  "name": "Q4 Engineering Performance Review",
-  "description": "Year-end 360 evaluation",
-  "templateId": "tmpl_2893f9a-112",
-  "templateVersion": 1,
-  "startDate": "2026-10-01T09:00:00Z",
-  "endDate": "2026-10-31T17:00:00Z",
-  "scoringMethod": "WEIGHTED_AVERAGE",
-  "anonymousMode": true,
-  "anonymousRoles": ["PEER", "SUBORDINATE"],
-  "minimumRespondents": 3
-}
-```
-
 ### Get campaign
 - `GET /api/v1/campaigns/{id}`
+
+### Update campaign
+- `PUT /api/v1/campaigns/{id}`
+
+Constraints:
+1. `name`, `startDate`, `endDate` required.
+2. `endDate` must be present/future by DTO validation.
 
 ### List campaigns
 - `GET /api/v1/campaigns?status=ACTIVE&page=0&size=20`
 
-### Activate campaign
-- `POST /api/v1/campaigns/{id}/activate`
+### Lifecycle operations
+1. `POST /api/v1/campaigns/{id}/activate`
+2. `POST /api/v1/campaigns/{id}/close`
+3. `POST /api/v1/campaigns/{id}/archive`
 
-### Close campaign
-- `POST /api/v1/campaigns/{id}/close`
-
-### Archive campaign
-- `POST /api/v1/campaigns/{id}/archive`
-
-### Add assignments
+### Manual assignment
 - `POST /api/v1/campaigns/{id}/assignments`
 
+Request:
 ```json
 {
   "assignments": [
@@ -82,235 +110,230 @@ Authorization: Bearer <jwt-token>
       "evaluatorId": "user_101",
       "evaluateeId": "user_200",
       "evaluatorRole": "SUPERVISOR"
-    },
-    {
-      "evaluatorId": "user_102",
-      "evaluateeId": "user_200",
-      "evaluatorRole": "PEER"
     }
   ]
+}
+```
+
+### Dynamic assignment generation
+- `POST /api/v1/campaigns/{id}/assignments/dynamic`
+
+Supported rule types:
+1. `ALL_TO_ALL`
+2. `ROUND_ROBIN`
+3. `MANAGER_HIERARCHY`
+4. `ATTRIBUTE_MATCH`
+
+Supported audience source types in engine:
+1. `INLINE`
+2. `DIRECTORY_SNAPSHOT`
+
+Request example:
+```json
+{
+  "audienceSourceType": "INLINE",
+  "audienceSourceConfig": {
+    "participants": [
+      { "userId": "t1", "section": "A", "supervisorId": "h1" },
+      { "userId": "s1", "section": "A", "supervisorId": "t1" }
+    ]
+  },
+  "assignmentRuleType": "ATTRIBUTE_MATCH",
+  "assignmentRuleConfig": {
+    "matchAttribute": "section",
+    "evaluatorRole": "PEER",
+    "maxEvaluatorsPerEvaluatee": 2,
+    "allowSelfEvaluation": false
+  },
+  "replaceExistingAssignments": false,
+  "dryRun": true
 }
 ```
 
 ### Extend deadline
 - `POST /api/v1/campaigns/{id}/extend-deadline`
 
+Request:
 ```json
 {
-  "newEndDate": "2026-11-07T17:00:00Z"
+  "newEndDate": "2026-12-15T17:00:00Z"
 }
 ```
 
 ### Campaign progress
 - `GET /api/v1/campaigns/{id}/progress`
 
-Response:
-```json
-{
-  "completionPercentage": 30.0
-}
-```
-
 ### My assignments
 - `GET /api/v1/campaigns/assignments/me`
 
-Response example:
-```json
-[
-  {
-    "id": "assign_1",
-    "campaignId": "camp_1",
-    "campaignName": "Q4 Engineering Performance Review",
-    "endDate": "2026-10-31T17:00:00Z",
-    "evaluateeId": "user_200",
-    "status": "PENDING",
-    "evaluationId": null
-  }
-]
-```
+### Assignment parity and migration safety
+1. `GET /api/v1/campaigns/{id}/assignments/reconcile`
+2. `GET /api/v1/campaigns/assignments/reconcile/report?maxCampaigns=1000`
+3. `POST /api/v1/campaigns/assignments/backfill?dryRun=true&maxCampaigns=1000`
 
 ---
 
-## Evaluations
+## Evaluation APIs
 
 ### Submit evaluation
 - `POST /api/v1/evaluations`
 
-```json
-{
-  "campaignId": "camp_1",
-  "assignmentId": "assign_1",
-  "evaluatorId": "user_101",
-  "evaluateeId": "user_200",
-  "templateId": "tmpl_1",
-  "answers": [
-    {
-      "questionId": "q_technical_01",
-      "value": 4.5,
-      "textResponse": "Excellent grasp of Java",
-      "selectedOptions": [],
-      "metadata": { "confidence": "high" }
-    }
-  ]
-}
-```
+Required fields:
+1. `campaignId`
+2. `assignmentId`
+3. `evaluatorId`
+4. `evaluateeId`
+5. `templateId`
+6. `answers`
 
 Note:
-- If a non-anonymous authenticated user is present, backend uses the authenticated identity as `evaluatorId`.
+1. If authenticated non-anonymous user exists, backend uses authenticated identity as evaluator.
 
 ### Get evaluation
 - `GET /api/v1/evaluations/{id}`
 
-### Update evaluation draft
+### Save draft
 - `PUT /api/v1/evaluations/{id}`
 
-```json
-{
-  "answers": [
-    {
-      "questionId": "q_technical_01",
-      "value": 5,
-      "textResponse": "Updated answer",
-      "selectedOptions": [],
-      "metadata": {}
-    }
-  ]
-}
-```
+### List evaluations
+1. `GET /api/v1/evaluations/campaign/{campaignId}?page=0&size=20`
+2. `GET /api/v1/evaluations/evaluatee/{evaluateeId}?page=0&size=20`
 
-### List by campaign
-- `GET /api/v1/evaluations/campaign/{campaignId}?page=0&size=20`
-
-### List by evaluatee
-- `GET /api/v1/evaluations/evaluatee/{evaluateeId}?page=0&size=20`
-
-### Flag evaluation
-- `POST /api/v1/evaluations/{id}/flag`
-
-### Invalidate evaluation
-- `POST /api/v1/evaluations/{id}/invalidate`
-
-### Evaluation response shape
-```json
-{
-  "id": "eval_1",
-  "campaignId": "camp_1",
-  "assignmentId": "assign_1",
-  "evaluatorId": "user_101",
-  "evaluateeId": "user_200",
-  "templateId": "tmpl_1",
-  "answers": [
-    {
-      "id": "ans_1",
-      "questionId": "q_technical_01",
-      "value": "4.5",
-      "selectedOptions": [],
-      "textResponse": "Excellent",
-      "metadata": {"confidence": "high"}
-    }
-  ],
-  "status": "COMPLETED",
-  "totalScore": 84.5,
-  "answerCount": 1,
-  "createdAt": "2026-10-10T10:00:00Z",
-  "submittedAt": "2026-10-10T10:05:00Z"
-}
-```
+### Moderation actions
+1. `POST /api/v1/evaluations/{id}/flag`
+2. `POST /api/v1/evaluations/{id}/invalidate`
 
 ---
 
-## Templates
+## Template APIs
 
-### Create template
-- `POST /api/v1/templates`
-
-### Get template
-- `GET /api/v1/templates/{id}`
-
-### List templates
-- `GET /api/v1/templates?category=PERFORMANCE&page=0&size=20`
-
-### Publish template
-- `POST /api/v1/templates/{id}/publish`
-
-### Deprecate template
-- `POST /api/v1/templates/{id}/deprecate`
-
-### Delete template
-- `DELETE /api/v1/templates/{id}`
+1. `POST /api/v1/templates`
+2. `PUT /api/v1/templates/{id}`
+3. `GET /api/v1/templates/{id}`
+4. `GET /api/v1/templates?category=PERFORMANCE&page=0&size=20`
+5. `POST /api/v1/templates/{id}/publish`
+6. `POST /api/v1/templates/{id}/deprecate`
+7. `DELETE /api/v1/templates/{id}`
 
 ---
 
-## Reports
+## Report APIs
 
-### Individual report
-- `GET /api/v1/reports/individual?evaluateeId={evaluateeId}&campaignId={campaignId}`
+Feature flags:
+1. `evaluation.service.features.enable-reports`
+2. `evaluation.service.features.enable-csv-export`
+3. `evaluation.service.features.enable-pdf-export`
 
-### Campaign report
-- `GET /api/v1/reports/campaign/{campaignId}`
+When disabled, endpoint returns `403`.
 
-### Export CSV
-- `GET /api/v1/reports/export/csv/{campaignId}`
-
-### Export PDF
-- `GET /api/v1/reports/export/pdf?evaluateeId={evaluateeId}&campaignId={campaignId}`
-
-Report feature flags:
-- `evaluation.service.features.enable-reports`
-- `evaluation.service.features.enable-csv-export`
-- `evaluation.service.features.enable-pdf-export`
+Endpoints:
+1. `GET /api/v1/reports/individual?evaluateeId={evaluateeId}&campaignId={campaignId}`
+2. `GET /api/v1/reports/campaign/{campaignId}`
+3. `GET /api/v1/reports/export/csv/{campaignId}`
+4. `GET /api/v1/reports/export/pdf?evaluateeId={evaluateeId}&campaignId={campaignId}`
 
 ---
 
-## Admin Settings
+## Admin Settings APIs
 
-### List all settings
-- `GET /api/v1/admin/settings`
+1. `GET /api/v1/admin/settings`
+2. `GET /api/v1/admin/settings/category/{category}`
+3. `GET /api/v1/admin/settings/{key}`
+4. `PUT /api/v1/admin/settings/{key}`
+5. `GET /api/v1/admin/settings/campaigns/{campaignId}`
+6. `PUT /api/v1/admin/settings/campaigns/{campaignId}/{key}`
+7. `DELETE /api/v1/admin/settings/campaigns/{campaignId}/{key}`
 
-### List settings by category
-- `GET /api/v1/admin/settings/category/{category}`
-
-### Get setting by key
-- `GET /api/v1/admin/settings/{key}`
-
-### Update setting
-- `PUT /api/v1/admin/settings/{key}`
-
+Write payload format:
 ```json
 {
   "value": "true"
 }
 ```
 
-### Get campaign overrides
-- `GET /api/v1/admin/settings/campaigns/{campaignId}`
+---
 
-### Set campaign override
-- `PUT /api/v1/admin/settings/campaigns/{campaignId}/{key}`
+## Audience Ingestion APIs (Phase 3)
 
+### Ingestion and replay
+1. `POST /api/v1/audience/ingest`
+2. `GET /api/v1/audience/ingestion-runs?tenantId={tenantId}&limit=50`
+3. `GET /api/v1/audience/ingestion-runs/{runId}`
+4. `GET /api/v1/audience/ingestion-runs/{runId}/rejections?limit=200`
+5. `POST /api/v1/audience/ingestion-runs/{runId}/replay`
+
+Ingest request shape:
 ```json
 {
-  "value": "false"
+  "tenantId": "tenant-001",
+  "sourceType": "CSV",
+  "sourceConfig": {
+    "entityType": "PERSON",
+    "validationProfile": "strict",
+    "content": "person_id,display_name,email,active\\nu1,Teacher One,t1@example.edu,true"
+  },
+  "mappingProfileId": 101,
+  "dryRun": true
 }
 ```
 
-### Remove campaign override
-- `DELETE /api/v1/admin/settings/campaigns/{campaignId}/{key}`
+### Mapping profile management
+1. `POST /api/v1/audience/mapping-profiles`
+2. `PUT /api/v1/audience/mapping-profiles/{profileId}`
+3. `POST /api/v1/audience/mapping-profiles/{profileId}/deactivate`
+4. `GET /api/v1/audience/mapping-profiles?tenantId={tenantId}`
+5. `GET /api/v1/audience/mapping-profiles/{profileId}?tenantId={tenantId}`
+6. `GET /api/v1/audience/mapping-profiles/{profileId}/events?tenantId={tenantId}&limit=50`
+7. `POST /api/v1/audience/mapping-profiles/validate`
 
 ---
 
-## Error Format
+## Rule Control Plane APIs (Phase 4/5)
 
-The API returns RFC 9457 `ProblemDetail` for handled failures.
+Base path: `/api/v1/admin/rules`  
+Access: `ROLE_ADMIN`
 
-Typical statuses:
-- `200 OK`
-- `201 Created`
-- `204 No Content`
-- `400 Bad Request`
-- `401 Unauthorized`
-- `403 Forbidden`
-- `404 Not Found`
-- `409 Conflict`
-- `422 Unprocessable Entity`
-- `500 Internal Server Error`
+### Rule definition lifecycle
+1. `POST /api/v1/admin/rules`
+2. `PUT /api/v1/admin/rules/{id}`
+3. `GET /api/v1/admin/rules?tenantId={tenantId}&status={status}`
+4. `GET /api/v1/admin/rules/{id}?tenantId={tenantId}`
+
+### Publish approval workflow
+1. `POST /api/v1/admin/rules/{id}/publish-requests`
+2. `POST /api/v1/admin/rules/publish-requests/{publishRequestId}/approve`
+3. `POST /api/v1/admin/rules/publish-requests/{publishRequestId}/reject`
+4. `POST /api/v1/admin/rules/{id}/deprecate`
+
+### Simulation and assignment publishing
+1. `POST /api/v1/admin/rules/{id}/simulate`
+2. `POST /api/v1/admin/rules/{id}/publish-assignments`
+3. `GET /api/v1/admin/rules/capabilities`
+
+Workflow guardrails (config):
+1. `evaluation.service.admin.publish-lock-enabled`
+2. `evaluation.service.admin.require-four-eyes-approval`
+
+Behavior:
+1. If publish lock enabled, assignment publication requires rule status `PUBLISHED`.
+2. If 4-eyes enabled, requester cannot approve own publish request.
+
+---
+
+## Dashboard API
+
+- `GET /api/v1/dashboard/stats`
+
+Returns:
+1. Campaign counts
+2. Template counts
+3. Evaluation counts
+4. Completion rate
+5. Recent activity list
+
+---
+
+## OpenAPI Source of Truth
+
+Use the machine-readable contract for schema-accurate payloads:
+- `docs/openapi.yaml`

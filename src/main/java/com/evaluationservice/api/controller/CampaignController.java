@@ -2,7 +2,12 @@ package com.evaluationservice.api.controller;
 
 import com.evaluationservice.api.dto.request.AddAssignmentsRequest;
 import com.evaluationservice.api.dto.request.CreateCampaignRequest;
+import com.evaluationservice.api.dto.request.GenerateDynamicAssignmentsRequest;
+import com.evaluationservice.api.dto.response.AssignmentParityReportResponse;
+import com.evaluationservice.api.dto.response.AssignmentReconciliationResponse;
+import com.evaluationservice.api.dto.response.AssignmentBackfillResponse;
 import com.evaluationservice.api.dto.response.CampaignResponse;
+import com.evaluationservice.api.dto.response.DynamicAssignmentResponse;
 import com.evaluationservice.api.mapper.ResponseMapper;
 import com.evaluationservice.application.port.in.CampaignManagementUseCase;
 import com.evaluationservice.application.port.in.CampaignManagementUseCase.AssignmentEntry;
@@ -14,6 +19,9 @@ import com.evaluationservice.domain.value.TemplateId;
 import com.evaluationservice.application.service.SettingsResolverService;
 import com.evaluationservice.domain.enums.ScoringMethod;
 import com.evaluationservice.infrastructure.security.SecurityContextUserProvider;
+import com.evaluationservice.infrastructure.service.AssignmentParityReportService;
+import com.evaluationservice.infrastructure.service.AssignmentReconciliationService;
+import com.evaluationservice.infrastructure.service.AssignmentBackfillService;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -35,16 +43,25 @@ public class CampaignController {
     private final ResponseMapper responseMapper;
     private final SecurityContextUserProvider userProvider;
     private final SettingsResolverService settingsResolver;
+    private final AssignmentReconciliationService assignmentReconciliationService;
+    private final AssignmentParityReportService assignmentParityReportService;
+    private final AssignmentBackfillService assignmentBackfillService;
 
     public CampaignController(
             CampaignManagementUseCase campaignUseCase,
             ResponseMapper responseMapper,
             SecurityContextUserProvider userProvider,
-            SettingsResolverService settingsResolver) {
+            SettingsResolverService settingsResolver,
+            AssignmentReconciliationService assignmentReconciliationService,
+            AssignmentParityReportService assignmentParityReportService,
+            AssignmentBackfillService assignmentBackfillService) {
         this.campaignUseCase = campaignUseCase;
         this.responseMapper = responseMapper;
         this.userProvider = userProvider;
         this.settingsResolver = settingsResolver;
+        this.assignmentReconciliationService = assignmentReconciliationService;
+        this.assignmentParityReportService = assignmentParityReportService;
+        this.assignmentBackfillService = assignmentBackfillService;
     }
 
     @PostMapping
@@ -59,6 +76,10 @@ public class CampaignController {
                         : ScoringMethod.valueOf(settingsResolver.resolve("scoring.default-method")),
                 request.anonymousMode(),
                 request.anonymousRoles(),
+                request.audienceSourceType(),
+                request.audienceSourceConfig(),
+                request.assignmentRuleType(),
+                request.assignmentRuleConfig(),
                 request.minimumRespondents() > 0 ? request.minimumRespondents()
                         : settingsResolver.resolveInt("campaign.default-minimum-respondents"),
                 userProvider.getCurrentUserId());
@@ -84,6 +105,10 @@ public class CampaignController {
                 request.scoringMethod(),
                 request.anonymousMode() != null ? request.anonymousMode() : false,
                 request.anonymousRoles(),
+                request.audienceSourceType(),
+                request.audienceSourceConfig(),
+                request.assignmentRuleType(),
+                request.assignmentRuleConfig(),
                 request.minimumRespondents() != null ? request.minimumRespondents() : 0);
         Campaign campaign = campaignUseCase.updateCampaign(command);
         return ResponseEntity.ok(responseMapper.toResponse(campaign));
@@ -131,6 +156,38 @@ public class CampaignController {
         return ResponseEntity.ok(responseMapper.toResponse(campaign));
     }
 
+    @PostMapping("/{id}/assignments/dynamic")
+    public ResponseEntity<DynamicAssignmentResponse> generateDynamicAssignments(
+            @PathVariable String id,
+            @Valid @RequestBody GenerateDynamicAssignmentsRequest request) {
+        var result = campaignUseCase.generateDynamicAssignments(
+                CampaignId.of(id),
+                new com.evaluationservice.application.port.in.CampaignManagementUseCase.DynamicAssignmentCommand(
+                        request.audienceSourceType(),
+                        request.audienceSourceConfig(),
+                        request.assignmentRuleType(),
+                        request.assignmentRuleConfig(),
+                        request.replaceExistingAssignments(),
+                        request.dryRun()));
+
+        List<DynamicAssignmentResponse.GeneratedAssignmentItem> generatedItems = result.generatedAssignments().stream()
+                .map(a -> new DynamicAssignmentResponse.GeneratedAssignmentItem(
+                        a.getId(),
+                        a.getEvaluatorId(),
+                        a.getEvaluateeId(),
+                        a.getEvaluatorRole()))
+                .toList();
+
+        return ResponseEntity.ok(new DynamicAssignmentResponse(
+                result.campaign().getId().value(),
+                result.audienceSourceType(),
+                result.assignmentRuleType(),
+                result.replaceExistingAssignments(),
+                result.dryRun(),
+                generatedItems.size(),
+                generatedItems));
+    }
+
     @PostMapping("/{id}/extend-deadline")
     public ResponseEntity<CampaignResponse> extendDeadline(
             @PathVariable String id,
@@ -167,6 +224,24 @@ public class CampaignController {
                 .toList();
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/assignments/reconcile")
+    public ResponseEntity<AssignmentReconciliationResponse> reconcileAssignments(@PathVariable String id) {
+        return ResponseEntity.ok(assignmentReconciliationService.reconcile(id));
+    }
+
+    @GetMapping("/assignments/reconcile/report")
+    public ResponseEntity<AssignmentParityReportResponse> reconcileAssignmentsReport(
+            @RequestParam(defaultValue = "1000") int maxCampaigns) {
+        return ResponseEntity.ok(assignmentParityReportService.buildReport(maxCampaigns));
+    }
+
+    @PostMapping("/assignments/backfill")
+    public ResponseEntity<AssignmentBackfillResponse> backfillAssignments(
+            @RequestParam(defaultValue = "true") boolean dryRun,
+            @RequestParam(defaultValue = "1000") int maxCampaigns) {
+        return ResponseEntity.ok(assignmentBackfillService.backfill(dryRun, maxCampaigns));
     }
 
     private int resolvePageSize(Integer requestedSize) {

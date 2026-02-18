@@ -1,6 +1,7 @@
 package com.evaluationservice.application.service;
 
 import com.evaluationservice.application.port.in.CampaignManagementUseCase;
+import com.evaluationservice.application.port.out.AssignmentPersistencePort;
 import com.evaluationservice.application.port.out.CampaignPersistencePort;
 import com.evaluationservice.application.port.out.TemplatePersistencePort;
 import com.evaluationservice.domain.entity.Campaign;
@@ -28,15 +29,21 @@ public class CampaignManagementService implements CampaignManagementUseCase {
 
     private final CampaignPersistencePort campaignPersistencePort;
     private final TemplatePersistencePort templatePersistencePort;
+    private final AssignmentPersistencePort assignmentPersistencePort;
     private final ApplicationEventPublisher eventPublisher;
+    private final DynamicAssignmentEngine dynamicAssignmentEngine;
 
     public CampaignManagementService(
             CampaignPersistencePort campaignPersistencePort,
             TemplatePersistencePort templatePersistencePort,
-            ApplicationEventPublisher eventPublisher) {
+            AssignmentPersistencePort assignmentPersistencePort,
+            ApplicationEventPublisher eventPublisher,
+            DynamicAssignmentEngine dynamicAssignmentEngine) {
         this.campaignPersistencePort = Objects.requireNonNull(campaignPersistencePort);
         this.templatePersistencePort = Objects.requireNonNull(templatePersistencePort);
+        this.assignmentPersistencePort = Objects.requireNonNull(assignmentPersistencePort);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
+        this.dynamicAssignmentEngine = Objects.requireNonNull(dynamicAssignmentEngine);
     }
 
     @Override
@@ -60,6 +67,10 @@ public class CampaignManagementService implements CampaignManagementUseCase {
                 command.anonymousMode(),
                 command.anonymousRoles(),
                 command.minimumRespondents(),
+                command.audienceSourceType(),
+                command.audienceSourceConfig(),
+                command.assignmentRuleType(),
+                command.assignmentRuleConfig(),
                 null,
                 command.createdBy(),
                 Timestamp.now(),
@@ -78,7 +89,11 @@ public class CampaignManagementService implements CampaignManagementUseCase {
                 command.scoringMethod(),
                 command.anonymousMode(),
                 command.anonymousRoles(),
-                command.minimumRespondents());
+                command.minimumRespondents(),
+                command.audienceSourceType(),
+                command.audienceSourceConfig(),
+                command.assignmentRuleType(),
+                command.assignmentRuleConfig());
 
         return campaignPersistencePort.save(campaign);
     }
@@ -135,7 +150,47 @@ public class CampaignManagementService implements CampaignManagementUseCase {
                 .toList();
 
         campaign.addAssignments(assignments);
-        return campaignPersistencePort.save(campaign);
+        Campaign saved = campaignPersistencePort.save(campaign);
+        assignmentPersistencePort.upsertAssignments(campaignId, assignments);
+        return saved;
+    }
+
+    @Override
+    public DynamicAssignmentResult generateDynamicAssignments(CampaignId campaignId, DynamicAssignmentCommand command) {
+        var campaign = findCampaignOrThrow(campaignId);
+        List<CampaignAssignment> generated = dynamicAssignmentEngine.generate(
+                campaignId,
+                command.audienceSourceType(),
+                command.audienceSourceConfig(),
+                command.assignmentRuleType(),
+                command.assignmentRuleConfig(),
+                campaign.getAssignments(),
+                command.replaceExistingAssignments());
+
+        if (!command.dryRun()) {
+            campaign.configureDynamicAssignments(
+                    command.audienceSourceType(),
+                    command.audienceSourceConfig(),
+                    command.assignmentRuleType(),
+                    command.assignmentRuleConfig());
+
+            if (command.replaceExistingAssignments()) {
+                campaign.replaceAssignments(generated);
+                assignmentPersistencePort.replaceAssignments(campaignId, generated);
+            } else if (!generated.isEmpty()) {
+                campaign.addAssignments(generated);
+                assignmentPersistencePort.upsertAssignments(campaignId, generated);
+            }
+            campaign = campaignPersistencePort.save(campaign);
+        }
+
+        return new DynamicAssignmentResult(
+                campaign,
+                generated,
+                command.audienceSourceType(),
+                command.assignmentRuleType(),
+                command.replaceExistingAssignments(),
+                command.dryRun());
     }
 
     @Override

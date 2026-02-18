@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
   title: Evaluation Service API
-  version: 1.1.0
+  version: 1.2.0
   description: |
-    OpenAPI contract synced to current backend controllers.
+    Full API contract for the current backend implementation (Phases 1-5).
 servers:
   - url: http://localhost:8080
 
@@ -14,12 +14,19 @@ tags:
   - name: Templates
   - name: Reports
   - name: Admin Settings
+  - name: Audience
+  - name: Rule Control Plane
+  - name: Dashboard
+
+security:
+  - bearerAuth: []
 
 paths:
   /api/v1/auth/login:
     post:
       tags: [Auth]
-      summary: Mock login for development/testing
+      summary: Mock login (available only when dev-mode=true)
+      security: []
       requestBody:
         required: true
         content:
@@ -93,6 +100,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CampaignResponse'
+    put:
+      tags: [Campaigns]
+      summary: Update campaign
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCampaignRequest'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
 
   /api/v1/campaigns/{id}/activate:
     post:
@@ -139,7 +164,7 @@ paths:
   /api/v1/campaigns/{id}/assignments:
     post:
       tags: [Campaigns]
-      summary: Add campaign assignments
+      summary: Add assignments manually
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -156,6 +181,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/CampaignResponse'
 
+  /api/v1/campaigns/{id}/assignments/dynamic:
+    post:
+      tags: [Campaigns]
+      summary: Generate dynamic assignments from source and rule config
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateDynamicAssignmentsRequest'
+      responses:
+        '200':
+          description: Generation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicAssignmentResponse'
+
   /api/v1/campaigns/{id}/extend-deadline:
     post:
       tags: [Campaigns]
@@ -167,11 +212,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                newEndDate:
-                  type: string
-                  format: date-time
+              $ref: '#/components/schemas/ExtendDeadlineRequest'
       responses:
         '200':
           description: Updated campaign
@@ -188,15 +229,11 @@ paths:
         - $ref: '#/components/parameters/IdPath'
       responses:
         '200':
-          description: Progress
+          description: Completion percentage
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completionPercentage:
-                    type: number
-                    format: double
+                $ref: '#/components/schemas/ProgressResponse'
 
   /api/v1/campaigns/assignments/me:
     get:
@@ -211,6 +248,61 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/MyAssignmentResponse'
+
+  /api/v1/campaigns/{id}/assignments/reconcile:
+    get:
+      tags: [Campaigns]
+      summary: Reconcile campaign assignment parity (legacy JSON vs relational)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Reconciliation report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentReconciliationResponse'
+
+  /api/v1/campaigns/assignments/reconcile/report:
+    get:
+      tags: [Campaigns]
+      summary: Aggregate assignment parity report
+      parameters:
+        - in: query
+          name: maxCampaigns
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: Parity report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentParityReportResponse'
+
+  /api/v1/campaigns/assignments/backfill:
+    post:
+      tags: [Campaigns]
+      summary: Backfill relational assignments from legacy campaign JSON
+      parameters:
+        - in: query
+          name: dryRun
+          schema:
+            type: boolean
+            default: true
+        - in: query
+          name: maxCampaigns
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: Backfill report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentBackfillResponse'
 
   /api/v1/evaluations:
     post:
@@ -245,7 +337,7 @@ paths:
                 $ref: '#/components/schemas/EvaluationResponse'
     put:
       tags: [Evaluations]
-      summary: Save evaluation draft
+      summary: Save/update evaluation draft
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -397,6 +489,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateResponse'
+    put:
+      tags: [Templates]
+      summary: Update template
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTemplateRequest'
+      responses:
+        '200':
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
     delete:
       tags: [Templates]
       summary: Delete template
@@ -456,6 +566,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IndividualReportResult'
+        '403':
+          description: Reports are disabled by feature flag
 
   /api/v1/reports/campaign/{campaignId}:
     get:
@@ -474,6 +586,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CampaignReportResult'
+        '403':
+          description: Reports are disabled by feature flag
 
   /api/v1/reports/export/csv/{campaignId}:
     get:
@@ -487,12 +601,14 @@ paths:
             type: string
       responses:
         '200':
-          description: CSV content
+          description: CSV bytes
           content:
             text/csv:
               schema:
                 type: string
                 format: binary
+        '403':
+          description: CSV export is disabled by feature flag
 
   /api/v1/reports/export/pdf:
     get:
@@ -511,12 +627,14 @@ paths:
             type: string
       responses:
         '200':
-          description: PDF content
+          description: PDF bytes
           content:
             application/pdf:
               schema:
                 type: string
                 format: binary
+        '403':
+          description: PDF export is disabled by feature flag
 
   /api/v1/admin/settings:
     get:
@@ -542,6 +660,7 @@ paths:
           required: true
           schema:
             type: string
+            enum: [SCORING, CAMPAIGN, NOTIFICATION, FEATURES, PAGINATION]
       responses:
         '200':
           description: Settings list
@@ -591,11 +710,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettingResponse'
+        '400':
+          description: Missing value in body
 
   /api/v1/admin/settings/campaigns/{campaignId}:
     get:
       tags: [Admin Settings]
-      summary: Get overrides for a campaign
+      summary: List campaign-level overrides
       parameters:
         - in: path
           name: campaignId
@@ -604,7 +725,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Override list
+          description: Overrides
           content:
             application/json:
               schema:
@@ -615,7 +736,7 @@ paths:
   /api/v1/admin/settings/campaigns/{campaignId}/{key}:
     put:
       tags: [Admin Settings]
-      summary: Set campaign override
+      summary: Set campaign-level override
       parameters:
         - in: path
           name: campaignId
@@ -640,9 +761,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OverrideResponse'
+        '400':
+          description: Missing value in body
     delete:
       tags: [Admin Settings]
-      summary: Remove campaign override
+      summary: Remove campaign-level override
       parameters:
         - in: path
           name: campaignId
@@ -658,7 +781,540 @@ paths:
         '204':
           description: Deleted
 
+  /api/v1/audience/ingest:
+    post:
+      tags: [Audience]
+      summary: Ingest audience data from connector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestAudienceRequest'
+      responses:
+        '200':
+          description: Ingestion run result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceIngestionResponse'
+
+  /api/v1/audience/ingestion-runs:
+    get:
+      tags: [Audience]
+      summary: List ingestion runs
+      parameters:
+        - in: query
+          name: tenantId
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Ingestion runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AudienceIngestionRunResponse'
+
+  /api/v1/audience/ingestion-runs/{runId}:
+    get:
+      tags: [Audience]
+      summary: Get ingestion run
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ingestion run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceIngestionRunResponse'
+
+  /api/v1/audience/ingestion-runs/{runId}/rejections:
+    get:
+      tags: [Audience]
+      summary: List row-level rejections for ingestion run
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Rejection rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AudienceIngestionRejectionResponse'
+
+  /api/v1/audience/ingestion-runs/{runId}/replay:
+    post:
+      tags: [Audience]
+      summary: Replay ingestion using stored snapshot
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayAudienceIngestionRequest'
+      responses:
+        '200':
+          description: Replay run result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceIngestionResponse'
+
+  /api/v1/audience/mapping-profiles:
+    post:
+      tags: [Audience]
+      summary: Create mapping profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAudienceMappingProfileRequest'
+      responses:
+        '200':
+          description: Created profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceMappingProfileResponse'
+    get:
+      tags: [Audience]
+      summary: List mapping profiles by tenant
+      parameters:
+        - in: query
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mapping profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AudienceMappingProfileResponse'
+
+  /api/v1/audience/mapping-profiles/{profileId}:
+    put:
+      tags: [Audience]
+      summary: Update mapping profile
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAudienceMappingProfileRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceMappingProfileResponse'
+    get:
+      tags: [Audience]
+      summary: Get mapping profile
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mapping profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceMappingProfileResponse'
+
+  /api/v1/audience/mapping-profiles/{profileId}/deactivate:
+    post:
+      tags: [Audience]
+      summary: Deactivate mapping profile
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateAudienceMappingProfileRequest'
+      responses:
+        '200':
+          description: Deactivated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceMappingProfileResponse'
+
+  /api/v1/audience/mapping-profiles/{profileId}/events:
+    get:
+      tags: [Audience]
+      summary: List mapping profile lifecycle events
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: tenantId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Lifecycle events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AudienceMappingProfileEventResponse'
+
+  /api/v1/audience/mapping-profiles/validate:
+    post:
+      tags: [Audience]
+      summary: Validate and normalize mapping profile payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateAudienceMappingProfileRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceMappingValidationResponse'
+
+  /api/v1/admin/rules:
+    post:
+      tags: [Rule Control Plane]
+      summary: Create draft rule definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleDefinitionRequest'
+      responses:
+        '200':
+          description: Created draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleDefinitionResponse'
+    get:
+      tags: [Rule Control Plane]
+      summary: List rule definitions
+      parameters:
+        - in: query
+          name: tenantId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RuleDefinitionResponse'
+
+  /api/v1/admin/rules/{id}:
+    put:
+      tags: [Rule Control Plane]
+      summary: Update draft rule definition
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleDefinitionRequest'
+      responses:
+        '200':
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleDefinitionResponse'
+    get:
+      tags: [Rule Control Plane]
+      summary: Get rule definition
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleDefinitionResponse'
+
+  /api/v1/admin/rules/{id}/publish-requests:
+    post:
+      tags: [Rule Control Plane]
+      summary: Create publish approval request for rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRulePublishRequest'
+      responses:
+        '200':
+          description: Publish request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulePublishRequestResponse'
+
+  /api/v1/admin/rules/publish-requests/{publishRequestId}/approve:
+    post:
+      tags: [Rule Control Plane]
+      summary: Approve publish request
+      parameters:
+        - in: path
+          name: publishRequestId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideRulePublishRequest'
+      responses:
+        '200':
+          description: Publish request approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulePublishRequestResponse'
+
+  /api/v1/admin/rules/publish-requests/{publishRequestId}/reject:
+    post:
+      tags: [Rule Control Plane]
+      summary: Reject publish request
+      parameters:
+        - in: path
+          name: publishRequestId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideRulePublishRequest'
+      responses:
+        '200':
+          description: Publish request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulePublishRequestResponse'
+
+  /api/v1/admin/rules/{id}/deprecate:
+    post:
+      tags: [Rule Control Plane]
+      summary: Deprecate rule definition
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideRulePublishRequest'
+      responses:
+        '200':
+          description: Deprecated rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleDefinitionResponse'
+
+  /api/v1/admin/rules/{id}/simulate:
+    post:
+      tags: [Rule Control Plane]
+      summary: Simulate rule against audience source
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateRuleRequest'
+      responses:
+        '200':
+          description: Simulation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleSimulationResponse'
+
+  /api/v1/admin/rules/{id}/publish-assignments:
+    post:
+      tags: [Rule Control Plane]
+      summary: Generate and publish assignments to campaign using rule definition
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRuleAssignmentsRequest'
+      responses:
+        '200':
+          description: Assignment generation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicAssignmentResponse'
+
+  /api/v1/admin/rules/capabilities:
+    get:
+      tags: [Rule Control Plane]
+      summary: Get supported rule/audience types and workflow guardrail settings
+      responses:
+        '200':
+          description: Capability payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleControlPlaneCapabilitiesResponse'
+
+  /api/v1/dashboard/stats:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard summary stats
+      responses:
+        '200':
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStatsResponse'
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
     IdPath:
       in: path
@@ -668,6 +1324,17 @@ components:
         type: string
 
   schemas:
+    AnyObject:
+      type: object
+      additionalProperties: true
+
+    ValuePayload:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: string
+
     LoginRequest:
       type: object
       required: [username, password]
@@ -683,41 +1350,57 @@ components:
         token:
           type: string
 
-    ValuePayload:
-      type: object
-      required: [value]
-      properties:
-        value:
-          type: string
-
     CreateCampaignRequest:
       type: object
       required: [name, templateId, startDate, endDate]
       properties:
-        name:
-          type: string
-        description:
-          type: string
-        templateId:
-          type: string
-        templateVersion:
-          type: integer
-        startDate:
-          type: string
-          format: date-time
-        endDate:
-          type: string
-          format: date-time
+        name: { type: string }
+        description: { type: string }
+        templateId: { type: string }
+        templateVersion: { type: integer }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
         scoringMethod:
           type: string
-        anonymousMode:
-          type: boolean
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
+        anonymousMode: { type: boolean }
         anonymousRoles:
           type: array
           items:
             type: string
-        minimumRespondents:
-          type: integer
+            enum: [SELF, PEER, SUPERVISOR, SUBORDINATE, EXTERNAL]
+        audienceSourceType: { type: string }
+        audienceSourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        assignmentRuleType: { type: string }
+        assignmentRuleConfig:
+          $ref: '#/components/schemas/AnyObject'
+        minimumRespondents: { type: integer }
+
+    UpdateCampaignRequest:
+      type: object
+      required: [name, startDate, endDate]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        scoringMethod:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
+        anonymousMode: { type: boolean }
+        anonymousRoles:
+          type: array
+          items:
+            type: string
+            enum: [SELF, PEER, SUPERVISOR, SUBORDINATE, EXTERNAL]
+        audienceSourceType: { type: string }
+        audienceSourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        assignmentRuleType: { type: string }
+        assignmentRuleConfig:
+          $ref: '#/components/schemas/AnyObject'
+        minimumRespondents: { type: integer }
 
     AddAssignmentsRequest:
       type: object
@@ -726,15 +1409,73 @@ components:
         assignments:
           type: array
           items:
-            type: object
-            required: [evaluatorId, evaluateeId, evaluatorRole]
-            properties:
-              evaluatorId:
-                type: string
-              evaluateeId:
-                type: string
-              evaluatorRole:
-                type: string
+            $ref: '#/components/schemas/AssignmentEntry'
+
+    AssignmentEntry:
+      type: object
+      required: [evaluatorId, evaluateeId, evaluatorRole]
+      properties:
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        evaluatorRole:
+          type: string
+          enum: [SELF, PEER, SUPERVISOR, SUBORDINATE, EXTERNAL]
+
+    GenerateDynamicAssignmentsRequest:
+      type: object
+      required: [audienceSourceType, audienceSourceConfig, assignmentRuleType, assignmentRuleConfig]
+      properties:
+        audienceSourceType:
+          type: string
+          enum: [INLINE, DIRECTORY_SNAPSHOT]
+        audienceSourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        assignmentRuleType:
+          type: string
+          enum: [ALL_TO_ALL, ROUND_ROBIN, MANAGER_HIERARCHY, ATTRIBUTE_MATCH]
+        assignmentRuleConfig:
+          $ref: '#/components/schemas/AnyObject'
+        replaceExistingAssignments: { type: boolean }
+        dryRun: { type: boolean }
+
+    DynamicAssignmentResponse:
+      type: object
+      properties:
+        campaignId: { type: string }
+        audienceSourceType: { type: string }
+        assignmentRuleType: { type: string }
+        replaceExistingAssignments: { type: boolean }
+        dryRun: { type: boolean }
+        generatedCount: { type: integer }
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DynamicAssignmentItem'
+
+    DynamicAssignmentItem:
+      type: object
+      properties:
+        assignmentId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        evaluatorRole:
+          type: string
+          enum: [SELF, PEER, SUPERVISOR, SUBORDINATE, EXTERNAL]
+
+    ExtendDeadlineRequest:
+      type: object
+      required: [newEndDate]
+      properties:
+        newEndDate:
+          type: string
+          format: date-time
+
+    ProgressResponse:
+      type: object
+      properties:
+        completionPercentage:
+          type: number
+          format: double
 
     CampaignResponse:
       type: object
@@ -744,11 +1485,21 @@ components:
         description: { type: string }
         templateId: { type: string }
         templateVersion: { type: integer }
-        status: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, SCHEDULED, ACTIVE, CLOSED, ARCHIVED]
         startDate: { type: string, format: date-time }
         endDate: { type: string, format: date-time }
-        scoringMethod: { type: string }
+        scoringMethod:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
         anonymousMode: { type: boolean }
+        audienceSourceType: { type: string }
+        audienceSourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        assignmentRuleType: { type: string }
+        assignmentRuleConfig:
+          $ref: '#/components/schemas/AnyObject'
         totalAssignments: { type: integer }
         completedAssignments: { type: integer, format: int64 }
         completionPercentage: { type: number, format: double }
@@ -772,7 +1523,6 @@ components:
 
     UpdateEvaluationRequest:
       type: object
-      required: [answers]
       properties:
         answers:
           type: array
@@ -789,8 +1539,7 @@ components:
           items: { type: string }
         textResponse: { type: string }
         metadata:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/AnyObject'
 
     EvaluationResponse:
       type: object
@@ -805,11 +1554,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AnswerResponse'
-        status: { type: string }
-        totalScore: { type: number, format: double }
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, SCORING, COMPLETED, FLAGGED, INVALIDATED]
+        totalScore: { type: number, format: double, nullable: true }
         answerCount: { type: integer }
         createdAt: { type: string, format: date-time }
-        submittedAt: { type: string, format: date-time }
+        submittedAt: { type: string, format: date-time, nullable: true }
 
     AnswerResponse:
       type: object
@@ -822,8 +1573,7 @@ components:
           items: { type: string }
         textResponse: { type: string }
         metadata:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/AnyObject'
 
     MyAssignmentResponse:
       type: object
@@ -843,7 +1593,73 @@ components:
         name: { type: string }
         description: { type: string }
         category: { type: string }
-        scoringMethod: { type: string }
+        scoringMethod:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionRequest'
+        customFormula: { type: string }
+
+    UpdateTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        scoringMethod:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionRequest'
+        customFormula: { type: string }
+
+    SectionRequest:
+      type: object
+      required: [title]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        orderIndex: { type: integer }
+        weight: { type: number, format: double }
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionRequest'
+
+    QuestionRequest:
+      type: object
+      required: [text, type]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        type:
+          type: string
+          enum:
+            - SINGLE_CHOICE
+            - MULTIPLE_CHOICE
+            - LIKERT_SCALE
+            - OPEN_TEXT
+            - NUMERIC_RATING
+            - BOOLEAN
+            - MATRIX
+            - RANKING
+            - NPS
+            - FILE_UPLOAD
+        orderIndex: { type: integer }
+        required: { type: boolean }
+        options:
+          type: array
+          items: { type: string }
+        weight: { type: number, format: double }
+        metadata:
+          $ref: '#/components/schemas/AnyObject'
+        conditionalLogic: { type: string }
 
     TemplateResponse:
       type: object
@@ -852,13 +1668,50 @@ components:
         name: { type: string }
         description: { type: string }
         category: { type: string }
-        status: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, DEPRECATED, ARCHIVED]
         currentVersion: { type: integer }
-        scoringMethod: { type: string }
+        scoringMethod:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
         totalQuestions: { type: integer }
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionResponse'
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    SectionResponse:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        orderIndex: { type: integer }
+        weight: { type: number, format: double }
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionResponse'
+
+    QuestionResponse:
+      type: object
+      properties:
+        id: { type: string }
+        text: { type: string }
+        type: { type: string }
+        orderIndex: { type: integer }
+        required: { type: boolean }
+        options:
+          type: array
+          items: { type: string }
+        weight: { type: number, format: double }
+        metadata:
+          $ref: '#/components/schemas/AnyObject'
+        conditionalLogic: { type: string }
 
     IndividualReportResult:
       type: object
@@ -916,3 +1769,360 @@ components:
         value: { type: string }
         updatedBy: { type: string }
         updatedAt: { type: string }
+
+    IngestAudienceRequest:
+      type: object
+      required: [tenantId, sourceType]
+      properties:
+        tenantId: { type: string }
+        sourceType:
+          type: string
+          enum: [CSV, JSON, REST, JDBC]
+        sourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        mappingProfileId:
+          type: integer
+          format: int64
+        dryRun:
+          type: boolean
+
+    ReplayAudienceIngestionRequest:
+      type: object
+      properties:
+        dryRun:
+          type: boolean
+          nullable: true
+
+    AudienceIngestionResponse:
+      type: object
+      properties:
+        tenantId: { type: string }
+        runId: { type: string }
+        dryRun: { type: boolean }
+        processedRecords: { type: integer }
+        rejectedRecords: { type: integer }
+
+    AudienceIngestionRunResponse:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        sourceType: { type: string }
+        status: { type: string }
+        dryRun: { type: boolean }
+        processedRecords: { type: integer }
+        rejectedRecords: { type: integer }
+        errorMessage: { type: string, nullable: true }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time, nullable: true }
+
+    AudienceIngestionRejectionResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        runId: { type: string }
+        tenantId: { type: string }
+        rowNumber: { type: integer }
+        reason: { type: string }
+        rowData: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    CreateAudienceMappingProfileRequest:
+      type: object
+      required: [tenantId, name, sourceType, fieldMappings]
+      properties:
+        tenantId: { type: string }
+        name: { type: string }
+        sourceType: { type: string }
+        fieldMappings:
+          type: object
+          additionalProperties:
+            type: string
+        active:
+          type: boolean
+          nullable: true
+
+    UpdateAudienceMappingProfileRequest:
+      type: object
+      required: [tenantId, name, fieldMappings]
+      properties:
+        tenantId: { type: string }
+        name: { type: string }
+        fieldMappings:
+          type: object
+          additionalProperties:
+            type: string
+        active:
+          type: boolean
+          nullable: true
+
+    DeactivateAudienceMappingProfileRequest:
+      type: object
+      required: [tenantId]
+      properties:
+        tenantId: { type: string }
+
+    ValidateAudienceMappingProfileRequest:
+      type: object
+      required: [sourceType, fieldMappings]
+      properties:
+        sourceType: { type: string }
+        fieldMappings:
+          type: object
+          additionalProperties:
+            type: string
+
+    AudienceMappingProfileResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tenantId: { type: string }
+        name: { type: string }
+        sourceType: { type: string }
+        fieldMappings:
+          type: object
+          additionalProperties:
+            type: string
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AudienceMappingProfileEventResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        profileId: { type: integer, format: int64 }
+        tenantId: { type: string }
+        eventType: { type: string }
+        actor: { type: string }
+        payload:
+          $ref: '#/components/schemas/AnyObject'
+        createdAt: { type: string, format: date-time }
+
+    AudienceMappingValidationResponse:
+      type: object
+      properties:
+        sourceType: { type: string }
+        normalizedMappings:
+          type: object
+          additionalProperties:
+            type: string
+        valid: { type: boolean }
+
+    CreateRuleDefinitionRequest:
+      type: object
+      required: [tenantId, name, semanticVersion, ruleType, ruleConfig]
+      properties:
+        tenantId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        semanticVersion:
+          type: string
+          pattern: '^\\d+\\.\\d+\\.\\d+$'
+        ruleType:
+          type: string
+          enum: [ALL_TO_ALL, ROUND_ROBIN, MANAGER_HIERARCHY, ATTRIBUTE_MATCH]
+        ruleConfig:
+          $ref: '#/components/schemas/AnyObject'
+
+    UpdateRuleDefinitionRequest:
+      type: object
+      required: [tenantId, name, semanticVersion, ruleType, ruleConfig]
+      properties:
+        tenantId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        semanticVersion:
+          type: string
+          pattern: '^\\d+\\.\\d+\\.\\d+$'
+        ruleType:
+          type: string
+          enum: [ALL_TO_ALL, ROUND_ROBIN, MANAGER_HIERARCHY, ATTRIBUTE_MATCH]
+        ruleConfig:
+          $ref: '#/components/schemas/AnyObject'
+
+    CreateRulePublishRequest:
+      type: object
+      required: [tenantId]
+      properties:
+        tenantId: { type: string }
+        reasonCode: { type: string }
+        comment: { type: string }
+
+    DecideRulePublishRequest:
+      type: object
+      required: [tenantId]
+      properties:
+        tenantId: { type: string }
+        decisionComment: { type: string }
+
+    SimulateRuleRequest:
+      type: object
+      required: [tenantId, audienceSourceType, audienceSourceConfig]
+      properties:
+        tenantId: { type: string }
+        audienceSourceType:
+          type: string
+          enum: [INLINE, DIRECTORY_SNAPSHOT]
+        audienceSourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        diagnosticMode: { type: boolean }
+
+    PublishRuleAssignmentsRequest:
+      type: object
+      required: [tenantId, campaignId, audienceSourceType, audienceSourceConfig]
+      properties:
+        tenantId: { type: string }
+        campaignId: { type: string }
+        audienceSourceType:
+          type: string
+          enum: [INLINE, DIRECTORY_SNAPSHOT]
+        audienceSourceConfig:
+          $ref: '#/components/schemas/AnyObject'
+        replaceExistingAssignments: { type: boolean }
+        dryRun: { type: boolean }
+
+    RuleDefinitionResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tenantId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        semanticVersion: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, DEPRECATED]
+        ruleType: { type: string }
+        ruleConfig:
+          $ref: '#/components/schemas/AnyObject'
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        publishedAt: { type: string, format: date-time, nullable: true }
+
+    RulePublishRequestResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        ruleDefinitionId: { type: integer, format: int64 }
+        tenantId: { type: string }
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        reasonCode: { type: string, nullable: true }
+        comment: { type: string, nullable: true }
+        requestedBy: { type: string }
+        requestedAt: { type: string, format: date-time }
+        decidedBy: { type: string, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        decisionComment: { type: string, nullable: true }
+
+    RuleSimulationResponse:
+      type: object
+      properties:
+        ruleDefinitionId: { type: integer, format: int64 }
+        ruleType: { type: string }
+        generatedCount: { type: integer }
+        generated:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleSimulationMatch'
+        excluded:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleSimulationExclusion'
+
+    RuleSimulationMatch:
+      type: object
+      properties:
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        evaluatorRole: { type: string }
+        reason: { type: string }
+        metadata:
+          $ref: '#/components/schemas/AnyObject'
+
+    RuleSimulationExclusion:
+      type: object
+      properties:
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        reason: { type: string }
+
+    RuleControlPlaneCapabilitiesResponse:
+      type: object
+      properties:
+        supportedRuleTypes:
+          type: array
+          items: { type: string }
+        supportedAudienceSourceTypes:
+          type: array
+          items: { type: string }
+        workflowConfig:
+          $ref: '#/components/schemas/AnyObject'
+
+    AssignmentReconciliationResponse:
+      type: object
+      properties:
+        campaignId: { type: string }
+        legacyCount: { type: integer }
+        relationalCount: { type: integer }
+        onlyInLegacyCount: { type: integer }
+        onlyInRelationalCount: { type: integer }
+        completionMismatchCount: { type: integer }
+        consistent: { type: boolean }
+        onlyInLegacy:
+          type: array
+          items: { type: string }
+        onlyInRelational:
+          type: array
+          items: { type: string }
+        completionMismatches:
+          type: array
+          items: { type: string }
+
+    AssignmentParityReportResponse:
+      type: object
+      properties:
+        scannedCampaigns: { type: integer }
+        consistentCampaigns: { type: integer }
+        inconsistentCampaigns: { type: integer }
+        totalOnlyInLegacy: { type: integer }
+        totalOnlyInRelational: { type: integer }
+        totalCompletionMismatches: { type: integer }
+        inconsistentCampaignIds:
+          type: array
+          items: { type: string }
+
+    AssignmentBackfillResponse:
+      type: object
+      properties:
+        scannedCampaigns: { type: integer }
+        parsedAssignments: { type: integer }
+        insertedAssignments: { type: integer }
+        skippedExistingAssignments: { type: integer }
+        invalidAssignments: { type: integer }
+        dryRun: { type: boolean }
+
+    DashboardStatsResponse:
+      type: object
+      properties:
+        totalCampaigns: { type: integer, format: int64 }
+        activeCampaigns: { type: integer, format: int64 }
+        totalTemplates: { type: integer, format: int64 }
+        activeEvaluations: { type: integer, format: int64 }
+        completedEvaluations: { type: integer, format: int64 }
+        completionRate: { type: number, format: double }
+        recentActivity:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardActivityResponse'
+
+    DashboardActivityResponse:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        timestamp: { type: string, format: date-time }
+        type: { type: string }

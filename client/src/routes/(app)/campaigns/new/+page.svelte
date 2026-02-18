@@ -10,6 +10,13 @@
     import * as Select from "$lib/components/ui/select/index.js";
     import { Loader2, ArrowLeft } from "@lucide/svelte";
     import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+    import AudienceBuilder from "$lib/components/campaign/AudienceBuilder.svelte";
+    import {
+        defaultRuleConfig,
+        normalizeRuleConfig,
+        sourceConfigFromParticipants,
+        type AudienceParticipant,
+    } from "$lib/campaign/audience-builder.js";
 
     let templates = $state<any[]>([]);
     let isLoadingTemplates = $state(true);
@@ -20,7 +27,7 @@
         name: "",
         description: "",
         templateId: "",
-        templateVersion: 1, // Default, will update when template selected
+        templateVersion: 1,
         startDate: "",
         endDate: "",
         scoringMethod: "WEIGHTED_AVERAGE",
@@ -28,9 +35,15 @@
         minimumRespondents: 1,
     });
 
+    let enableDynamicAssignments = $state(false);
+    let audienceSourceType = $state("INLINE");
+    let assignmentRuleType = $state("ATTRIBUTE_MATCH");
+    let audienceParticipants = $state<AudienceParticipant[]>([]);
+    let assignmentRuleConfig = $state<Record<string, unknown>>(defaultRuleConfig("ATTRIBUTE_MATCH"));
+
     async function fetchTemplates() {
         try {
-            const response = await api.get("/templates"); // Assuming this endpoint exists
+            const response = await api.get("/templates");
             templates = response.data;
         } catch (err) {
             console.error("Failed to fetch templates:", err);
@@ -58,20 +71,34 @@
         error = null;
 
         try {
-            // Convert dates to ISO Instant format (e.g., "2023-10-27T10:00:00Z")
-            // Simple approach: append T00:00:00Z for start, T23:59:59Z for end
-            const payload = {
-                ...formData,
+            const payload: Record<string, unknown> = {
+                name: formData.name,
+                description: formData.description,
+                templateId: formData.templateId,
+                templateVersion: formData.templateVersion,
                 startDate: new Date(formData.startDate).toISOString(),
                 endDate: new Date(formData.endDate).toISOString(),
-                anonymousRoles: [], // Default empty for now
+                scoringMethod: formData.scoringMethod,
+                anonymousMode: formData.anonymousMode,
+                anonymousRoles: [],
+                minimumRespondents: Number(formData.minimumRespondents),
             };
+
+            if (enableDynamicAssignments) {
+                payload.audienceSourceType = audienceSourceType;
+                payload.audienceSourceConfig = sourceConfigFromParticipants(audienceParticipants);
+                payload.assignmentRuleType = assignmentRuleType;
+                payload.assignmentRuleConfig = normalizeRuleConfig(
+                    assignmentRuleType,
+                    assignmentRuleConfig,
+                );
+            }
 
             await api.post("/campaigns", payload);
             goto("/campaigns");
         } catch (err: any) {
             console.error("Failed to create campaign:", err);
-            error = err.response?.data?.detail || "Failed to create campaign.";
+            error = err.response?.data?.detail || err.message || "Failed to create campaign.";
         } finally {
             isSubmitting = false;
         }
@@ -91,7 +118,7 @@
         <h1 class="text-lg font-semibold md:text-2xl">Create Campaign</h1>
     </div>
 
-    <form onsubmit={handleSubmit} class="grid gap-6 max-w-2xl">
+    <form onsubmit={handleSubmit} class="grid gap-6 max-w-4xl">
         {#if error}
             <div
                 class="rounded-md bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400"
@@ -139,13 +166,9 @@
                 </Select.Trigger>
                 <Select.Content>
                     {#if isLoadingTemplates}
-                        <div class="p-2 text-center text-sm">
-                            Loading templates...
-                        </div>
+                        <div class="p-2 text-center text-sm">Loading templates...</div>
                     {:else if templates.length === 0}
-                        <div class="p-2 text-center text-sm">
-                            No templates available
-                        </div>
+                        <div class="p-2 text-center text-sm">No templates available</div>
                     {:else}
                         {#each templates as template}
                             <Select.Item value={template.id}
@@ -157,25 +180,30 @@
             </Select.Root>
         </div>
 
-        <div class="grid gap-2">
-            <Label for="scoring">Scoring Method</Label>
-            <Select.Root
-                type="single"
-                value={formData.scoringMethod}
-                onValueChange={(v) => (formData.scoringMethod = v)}
-            >
-                <Select.Trigger>
-                    {formData.scoringMethod}
-                </Select.Trigger>
-                <Select.Content>
-                    <Select.Item value="WEIGHTED_AVERAGE"
-                        >Weighted Average</Select.Item
-                    >
-                    <Select.Item value="SIMPLE_AVERAGE"
-                        >Simple Average</Select.Item
-                    >
-                </Select.Content>
-            </Select.Root>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="grid gap-2">
+                <Label for="scoringMethod">Scoring Method</Label>
+                <select
+                    id="scoringMethod"
+                    bind:value={formData.scoringMethod}
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                    <option value="WEIGHTED_AVERAGE">Weighted Average</option>
+                    <option value="SIMPLE_AVERAGE">Simple Average</option>
+                    <option value="MEDIAN">Median</option>
+                    <option value="PERCENTILE_RANK">Percentile Rank</option>
+                    <option value="CUSTOM_FORMULA">Custom Formula</option>
+                </select>
+            </div>
+            <div class="grid gap-2">
+                <Label for="minimumRespondents">Min Respondents</Label>
+                <Input
+                    id="minimumRespondents"
+                    type="number"
+                    min="1"
+                    bind:value={formData.minimumRespondents}
+                />
+            </div>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -186,6 +214,25 @@
             />
             <Label for="anonymous">Anonymous Mode</Label>
         </div>
+
+        <div class="flex items-center space-x-2">
+            <Checkbox
+                id="enable-dynamic"
+                checked={enableDynamicAssignments}
+                onCheckedChange={(v) => (enableDynamicAssignments = v)}
+            />
+            <Label for="enable-dynamic">Enable dynamic audience assignment</Label>
+        </div>
+
+        {#if enableDynamicAssignments}
+            <AudienceBuilder
+                bind:audienceSourceType
+                bind:assignmentRuleType
+                bind:participants={audienceParticipants}
+                bind:ruleConfig={assignmentRuleConfig}
+                title="Audience Builder"
+            />
+        {/if}
 
         <div class="flex justify-end gap-4">
             <Button

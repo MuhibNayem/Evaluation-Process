@@ -48,6 +48,18 @@ public class CampaignEntity {
     @Column(name = "minimum_respondents")
     private int minimumRespondents;
 
+    @Column(name = "audience_source_type", length = 50)
+    private String audienceSourceType;
+
+    @Column(name = "audience_source_config_json", columnDefinition = "TEXT")
+    private String audienceSourceConfigJson;
+
+    @Column(name = "assignment_rule_type", length = 50)
+    private String assignmentRuleType;
+
+    @Column(name = "assignment_rule_config_json", columnDefinition = "TEXT")
+    private String assignmentRuleConfigJson;
+
     @Column(name = "assignments_json", columnDefinition = "TEXT")
     private String assignmentsJson;
 
@@ -159,6 +171,38 @@ public class CampaignEntity {
 
     public void setMinimumRespondents(int minimumRespondents) {
         this.minimumRespondents = minimumRespondents;
+    }
+
+    public String getAudienceSourceType() {
+        return audienceSourceType;
+    }
+
+    public void setAudienceSourceType(String audienceSourceType) {
+        this.audienceSourceType = audienceSourceType;
+    }
+
+    public String getAudienceSourceConfigJson() {
+        return audienceSourceConfigJson;
+    }
+
+    public void setAudienceSourceConfigJson(String audienceSourceConfigJson) {
+        this.audienceSourceConfigJson = audienceSourceConfigJson;
+    }
+
+    public String getAssignmentRuleType() {
+        return assignmentRuleType;
+    }
+
+    public void setAssignmentRuleType(String assignmentRuleType) {
+        this.assignmentRuleType = assignmentRuleType;
+    }
+
+    public String getAssignmentRuleConfigJson() {
+        return assignmentRuleConfigJson;
+    }
+
+    public void setAssignmentRuleConfigJson(String assignmentRuleConfigJson) {
+        this.assignmentRuleConfigJson = assignmentRuleConfigJson;
     }
 
     public String getAssignmentsJson() {

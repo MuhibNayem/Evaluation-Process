@@ -3,7 +3,9 @@ package com.evaluationservice.infrastructure.config;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -35,13 +37,25 @@ public class DatabaseConfig {
     @Value("${spring.datasource.password}")
     private String password;
 
+    @Value("${spring.datasource.driver-class-name:org.postgresql.Driver}")
+    private String driverClassName;
+
+    @Value("${spring.jpa.hibernate.ddl-auto:validate}")
+    private String hibernateDdlAuto;
+
+    @Value("${spring.jpa.properties.hibernate.dialect:org.hibernate.dialect.PostgreSQLDialect}")
+    private String hibernateDialect;
+
+    @Value("${spring.flyway.locations:classpath:db/migration}")
+    private String flywayLocations;
+
     @Bean
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(dbUrl);
         config.setUsername(username);
         config.setPassword(password);
-        config.setDriverClassName("org.postgresql.Driver");
+        config.setDriverClassName(driverClassName);
         config.setAutoCommit(false);
 
         // Performance optimizations
@@ -62,10 +76,11 @@ public class DatabaseConfig {
      * Flyway runs all pending migrations before anything else uses the database.
      */
     @Bean(initMethod = "migrate")
+    @ConditionalOnProperty(name = "spring.flyway.enabled", havingValue = "true", matchIfMissing = true)
     public Flyway flyway(DataSource dataSource) {
         return Flyway.configure()
                 .dataSource(dataSource)
-                .locations("classpath:db/migration")
+                .locations(flywayLocations)
                 .baselineOnMigrate(true)
                 .load();
     }
@@ -76,7 +91,12 @@ public class DatabaseConfig {
      * validation.
      */
     @Bean
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource, Flyway flyway) {
+    public LocalContainerEntityManagerFactoryBean entityManagerFactory(
+            DataSource dataSource,
+            ObjectProvider<Flyway> flywayProvider) {
+        // Force flyway bean initialization first if it is enabled/present.
+        flywayProvider.getIfAvailable();
+
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
         em.setPackagesToScan(
@@ -87,8 +107,8 @@ public class DatabaseConfig {
         em.setJpaVendorAdapter(vendorAdapter);
 
         Properties properties = new Properties();
-        properties.setProperty("hibernate.hbm2ddl.auto", "validate");
-        properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
+        properties.setProperty("hibernate.hbm2ddl.auto", hibernateDdlAuto);
+        properties.setProperty("hibernate.dialect", hibernateDialect);
         properties.setProperty("hibernate.show_sql", "false");
         properties.setProperty("hibernate.format_sql", "true");
         properties.setProperty("hibernate.jdbc.time_zone", "UTC");

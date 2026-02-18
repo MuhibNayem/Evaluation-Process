@@ -8,14 +8,17 @@
     import { Label } from "$lib/components/ui/label/index.js";
     import { Textarea } from "$lib/components/ui/textarea/index.js";
     import { Checkbox } from "$lib/components/ui/checkbox/index.js";
-
     import { toast } from "svelte-sonner";
     import DatePicker from "$lib/components/ui/date-picker/date-picker.svelte";
     import { Loader2, ArrowLeft } from "@lucide/svelte";
-
-    // Since we don't have a date picker component setup yet in the plan, I'll use simple HTML date inputs for now or text inputs.
-    // Actually, Shadcn has a Calendar but setting it up might be complex in one go.
-    // I'll use standard <input type="datetime-local" /> for simplicity and robustness.
+    import AudienceBuilder from "$lib/components/campaign/AudienceBuilder.svelte";
+    import {
+        defaultRuleConfig,
+        normalizeRuleConfig,
+        participantsFromSourceConfig,
+        sourceConfigFromParticipants,
+        type AudienceParticipant,
+    } from "$lib/campaign/audience-builder.js";
 
     let campaignId = $state($page.params.id);
     let loading = $state(true);
@@ -29,8 +32,11 @@
     let anonymousMode = $state(false);
     let minimumRespondents = $state(1);
 
-    // We can't easily change Template once created in this simple version
-    let templateName = $state("");
+    let enableDynamicAssignments = $state(false);
+    let audienceSourceType = $state("INLINE");
+    let assignmentRuleType = $state("ATTRIBUTE_MATCH");
+    let audienceParticipants = $state<AudienceParticipant[]>([]);
+    let assignmentRuleConfig = $state<Record<string, unknown>>(defaultRuleConfig("ATTRIBUTE_MATCH"));
 
     async function fetchCampaign() {
         loading = true;
@@ -39,17 +45,22 @@
             const c = res.data;
             name = c.name;
             description = c.description || "";
-            // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:mm)
-            startDate = c.startDate
-                ? new Date(c.startDate).toISOString().slice(0, 16)
-                : "";
-            endDate = c.endDate
-                ? new Date(c.endDate).toISOString().slice(0, 16)
-                : "";
+            startDate = c.startDate ? new Date(c.startDate).toISOString().slice(0, 10) : "";
+            endDate = c.endDate ? new Date(c.endDate).toISOString().slice(0, 10) : "";
             scoringMethod = c.scoringMethod;
             anonymousMode = c.anonymousMode;
             minimumRespondents = c.minimumRespondents || 1;
-            // Fetch template name if possible, or just ignore
+
+            if (c.audienceSourceType || c.assignmentRuleType) {
+                enableDynamicAssignments = true;
+                audienceSourceType = c.audienceSourceType || "INLINE";
+                assignmentRuleType = c.assignmentRuleType || "ATTRIBUTE_MATCH";
+                audienceParticipants = participantsFromSourceConfig(c.audienceSourceConfig);
+                assignmentRuleConfig = normalizeRuleConfig(
+                    assignmentRuleType,
+                    c.assignmentRuleConfig,
+                );
+            }
         } catch (err) {
             console.error(err);
             toast.error("Failed to load campaign");
@@ -68,16 +79,26 @@
         saving = true;
 
         try {
-            const payload = {
+            const payload: Record<string, unknown> = {
                 name,
                 description,
                 startDate: new Date(startDate).toISOString(),
                 endDate: new Date(endDate).toISOString(),
                 scoringMethod,
                 anonymousMode,
-                anonymousRoles: [], // Default empty for now
+                anonymousRoles: [],
                 minimumRespondents: Number(minimumRespondents),
             };
+
+            if (enableDynamicAssignments) {
+                payload.audienceSourceType = audienceSourceType;
+                payload.audienceSourceConfig = sourceConfigFromParticipants(audienceParticipants);
+                payload.assignmentRuleType = assignmentRuleType;
+                payload.assignmentRuleConfig = normalizeRuleConfig(
+                    assignmentRuleType,
+                    assignmentRuleConfig,
+                );
+            }
 
             await api.put(`/campaigns/${campaignId}`, payload);
             toast.success("Campaign updated successfully");
@@ -94,7 +115,7 @@
     }
 </script>
 
-<div class="mx-auto max-w-2xl pb-20">
+<div class="mx-auto max-w-4xl pb-20">
     <div class="mb-6 flex items-center gap-4">
         <Button
             variant="ghost"
@@ -131,9 +152,6 @@
                 />
             </div>
 
-            import {DatePicker} from "$lib/components/ui/date-picker/index.js"; //
-            ... (rest of code)
-
             <div class="grid grid-cols-2 gap-4">
                 <div class="grid gap-2">
                     <Label for="startDate">Start Date</Label>
@@ -151,12 +169,13 @@
                     <select
                         id="scoring"
                         bind:value={scoringMethod}
-                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
-                        <option value="WEIGHTED_AVERAGE"
-                            >Weighted Average</option
-                        >
+                        <option value="WEIGHTED_AVERAGE">Weighted Average</option>
                         <option value="SIMPLE_AVERAGE">Simple Average</option>
+                        <option value="MEDIAN">Median</option>
+                        <option value="PERCENTILE_RANK">Percentile Rank</option>
+                        <option value="CUSTOM_FORMULA">Custom Formula</option>
                     </select>
                 </div>
                 <div class="grid gap-2">
@@ -171,11 +190,34 @@
             </div>
 
             <div class="flex items-center space-x-2">
-                <Checkbox id="anonymous" bind:checked={anonymousMode} />
+                <Checkbox
+                    id="anonymous"
+                    checked={anonymousMode}
+                    onCheckedChange={(v) => (anonymousMode = v)}
+                />
                 <Label for="anonymous" class="font-normal"
                     >Enable Anonymous Mode</Label
                 >
             </div>
+
+            <div class="flex items-center space-x-2">
+                <Checkbox
+                    id="enable-dynamic-edit"
+                    checked={enableDynamicAssignments}
+                    onCheckedChange={(v) => (enableDynamicAssignments = v)}
+                />
+                <Label for="enable-dynamic-edit">Enable dynamic audience assignment</Label>
+            </div>
+
+            {#if enableDynamicAssignments}
+                <AudienceBuilder
+                    bind:audienceSourceType
+                    bind:assignmentRuleType
+                    bind:participants={audienceParticipants}
+                    bind:ruleConfig={assignmentRuleConfig}
+                    title="Audience Builder"
+                />
+            {/if}
 
             <div class="flex justify-end gap-4 pt-4">
                 <Button

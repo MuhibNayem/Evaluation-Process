@@ -32,6 +32,10 @@ public class Campaign {
     private boolean anonymousMode;
     private Set<EvaluatorRole> anonymousRoles;
     private int minimumRespondents;
+    private String audienceSourceType;
+    private Map<String, Object> audienceSourceConfig;
+    private String assignmentRuleType;
+    private Map<String, Object> assignmentRuleConfig;
     private List<CampaignAssignment> assignments;
     private final String createdBy;
     private final Timestamp createdAt;
@@ -49,6 +53,10 @@ public class Campaign {
             boolean anonymousMode,
             Set<EvaluatorRole> anonymousRoles,
             int minimumRespondents,
+            String audienceSourceType,
+            Map<String, Object> audienceSourceConfig,
+            String assignmentRuleType,
+            Map<String, Object> assignmentRuleConfig,
             List<CampaignAssignment> assignments,
             String createdBy,
             Timestamp createdAt,
@@ -65,6 +73,10 @@ public class Campaign {
         this.anonymousRoles = anonymousRoles != null ? EnumSet.copyOf(anonymousRoles)
                 : EnumSet.noneOf(EvaluatorRole.class);
         this.minimumRespondents = Math.max(minimumRespondents, 1);
+        this.audienceSourceType = normalizeType(audienceSourceType);
+        this.audienceSourceConfig = copyConfig(audienceSourceConfig);
+        this.assignmentRuleType = normalizeType(assignmentRuleType);
+        this.assignmentRuleConfig = copyConfig(assignmentRuleConfig);
         this.assignments = assignments != null ? new ArrayList<>(assignments) : new ArrayList<>();
         this.createdBy = Objects.requireNonNull(createdBy, "CreatedBy cannot be null");
         this.createdAt = createdAt != null ? createdAt : Timestamp.now();
@@ -119,6 +131,14 @@ public class Campaign {
         newAssignments.forEach(this::addAssignment);
     }
 
+    public void replaceAssignments(List<CampaignAssignment> newAssignments) {
+        if (this.status != CampaignStatus.DRAFT && this.status != CampaignStatus.SCHEDULED) {
+            throw new IllegalStateException("Cannot replace assignments for campaign in status: " + this.status);
+        }
+        this.assignments = new ArrayList<>(Objects.requireNonNull(newAssignments));
+        this.updatedAt = Timestamp.now();
+    }
+
     public void extendDeadline(Instant newEndDate) {
         if (this.status != CampaignStatus.ACTIVE) {
             throw new IllegalStateException("Can only extend deadline of active campaigns");
@@ -128,7 +148,9 @@ public class Campaign {
     }
 
     public void update(String name, String description, DateRange dateRange, ScoringMethod scoringMethod,
-            boolean anonymousMode, Set<EvaluatorRole> anonymousRoles, int minimumRespondents) {
+            boolean anonymousMode, Set<EvaluatorRole> anonymousRoles, int minimumRespondents,
+            String audienceSourceType, Map<String, Object> audienceSourceConfig,
+            String assignmentRuleType, Map<String, Object> assignmentRuleConfig) {
         if (this.status != CampaignStatus.DRAFT && this.status != CampaignStatus.SCHEDULED) {
             throw new IllegalStateException("Cannot update details of campaign in status: " + this.status);
         }
@@ -151,7 +173,34 @@ public class Campaign {
         }
         this.anonymousMode = anonymousMode;
         this.minimumRespondents = Math.max(minimumRespondents, 1);
+        if (audienceSourceType != null) {
+            this.audienceSourceType = normalizeType(audienceSourceType);
+        }
+        if (audienceSourceConfig != null) {
+            this.audienceSourceConfig = copyConfig(audienceSourceConfig);
+        }
+        if (assignmentRuleType != null) {
+            this.assignmentRuleType = normalizeType(assignmentRuleType);
+        }
+        if (assignmentRuleConfig != null) {
+            this.assignmentRuleConfig = copyConfig(assignmentRuleConfig);
+        }
 
+        this.updatedAt = Timestamp.now();
+    }
+
+    public void configureDynamicAssignments(
+            String audienceSourceType,
+            Map<String, Object> audienceSourceConfig,
+            String assignmentRuleType,
+            Map<String, Object> assignmentRuleConfig) {
+        if (this.status != CampaignStatus.DRAFT && this.status != CampaignStatus.SCHEDULED) {
+            throw new IllegalStateException("Cannot configure assignments for campaign in status: " + this.status);
+        }
+        this.audienceSourceType = normalizeType(audienceSourceType);
+        this.audienceSourceConfig = copyConfig(audienceSourceConfig);
+        this.assignmentRuleType = normalizeType(assignmentRuleType);
+        this.assignmentRuleConfig = copyConfig(assignmentRuleConfig);
         this.updatedAt = Timestamp.now();
     }
 
@@ -221,6 +270,22 @@ public class Campaign {
         return minimumRespondents;
     }
 
+    public String getAudienceSourceType() {
+        return audienceSourceType;
+    }
+
+    public Map<String, Object> getAudienceSourceConfig() {
+        return Collections.unmodifiableMap(audienceSourceConfig);
+    }
+
+    public String getAssignmentRuleType() {
+        return assignmentRuleType;
+    }
+
+    public Map<String, Object> getAssignmentRuleConfig() {
+        return Collections.unmodifiableMap(assignmentRuleConfig);
+    }
+
     public List<CampaignAssignment> getAssignments() {
         return Collections.unmodifiableList(assignments);
     }
@@ -250,5 +315,13 @@ public class Campaign {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    private static String normalizeType(String value) {
+        return value == null ? null : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static Map<String, Object> copyConfig(Map<String, Object> source) {
+        return source == null ? new LinkedHashMap<>() : new LinkedHashMap<>(source);
     }
 }

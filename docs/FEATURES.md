@@ -28,6 +28,16 @@ The system enforces a strict state machine to ensure data integrity.
 *   **Anonymous Mode**: Hides evaluator identities in reports.
     *   *Granular Control*: Can apply to specific roles only (e.g., anonymize `PEER` but show `SUPERVISOR`).
 *   **Minimum Respondents**: Threshold (default: 1) to protect anonymity. If fewer than $N$ evaluators respond, the report section is withheld.
+*   **Dynamic Audience Assignment**:
+    *   Configure `audienceSourceType` + `audienceSourceConfig` per campaign.
+    *   Configure `assignmentRuleType` + `assignmentRuleConfig` per campaign.
+    *   Generate assignments through `POST /api/v1/campaigns/{id}/assignments/dynamic` with `dryRun` support.
+    *   Built-in rule strategies: `ALL_TO_ALL`, `ROUND_ROBIN`, `MANAGER_HIERARCHY`, `ATTRIBUTE_MATCH`.
+*   **Admin Rule Control Plane**:
+    *   Versioned assignment-rule definitions with semantic versioning.
+    *   Publish approval workflow with optional 4-eyes enforcement and publish locks.
+    *   Simulation API with explainability payload before assignment publication.
+    *   Admin actions audited to persistent audit logs and integration outbox.
 
 ---
 

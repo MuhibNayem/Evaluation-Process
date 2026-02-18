@@ -72,6 +72,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             if (jwtUtil.validateToken(jwtToken)) {
+                @SuppressWarnings("unchecked")
                 List<String> roles = jwtUtil.getClaimFromToken(jwtToken, claims -> claims.get("roles", List.class));
 
                 Set<GrantedAuthority> authorities = new HashSet<>();

@@ -191,3 +191,71 @@ evaluation:
       enable-reports: true
       enable-csv-export: true
       enable-pdf-export: false
+
+    # Assignment storage cutover mode: JSON | DUAL | V2
+    assignment:
+      storage-mode: DUAL
+      reconciliation-enabled: true
+      reconciliation-cron: "0 */30 * * * *"
+      reconciliation-max-campaigns: 500
+
+    audience:
+      jdbc:
+        connections: {}
+      validation-profiles:
+        default:
+          require-person-display-name: false
+          min-person-display-name-length: 0
+          require-person-email: false
+          allowed-email-domains: []
+          allowed-group-types: []
+          require-group-external-ref: false
+          require-membership-role: false
+          require-membership-validity-window: false
+          require-active-person-for-membership: false
+          require-active-group-for-membership: false
+          membership-role-allowed-group-types: {}
+        strict:
+          require-person-display-name: true
+          min-person-display-name-length: 3
+          require-person-email: true
+          allowed-email-domains: []
+          allowed-group-types: []
+          require-group-external-ref: false
+          require-membership-role: true
+          require-membership-validity-window: true
+          require-active-person-for-membership: true
+          require-active-group-for-membership: true
+          membership-role-allowed-group-types: {}
+      retention:
+        enabled: true
+        cron: "0 0 3 * * *"
+        snapshot-ttl-days: 30
+        mapping-event-ttl-days: 90
+        outbox-published-ttl-days: 30
+        outbox-failed-ttl-days: 180
+      outbox:
+        transport: LOG
+        enabled: true
+        cron: "0 */1 * * * *"
+        batch-size: 100
+        max-attempts: 10
+        base-backoff-seconds: 5
+        max-backoff-seconds: 3600
+        webhook-enabled: false
+        webhook-url: ""
+        webhook-timeout-ms: 5000
+        webhook-auth-token: ""
+        webhook-headers: {}
+        kafka:
+          enabled: false
+          topic: evaluation.outbox.events
+          send-timeout-ms: 5000
+        rabbitmq:
+          enabled: false
+          exchange: evaluation.outbox.events
+          routing-key: evaluation.outbox.event
+
+    admin:
+      publish-lock-enabled: true
+      require-four-eyes-approval: true

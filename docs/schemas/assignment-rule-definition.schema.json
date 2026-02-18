@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evaluationservice.com/schemas/assignment-rule-definition.schema.json",
+  "title": "Assignment Rule Definition",
+  "type": "object",
+  "required": [
+    "name",
+    "semanticVersion",
+    "ruleType",
+    "ruleConfig"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "string"
+    },
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "ruleType": {
+      "type": "string",
+      "enum": [
+        "ALL_TO_ALL",
+        "ROUND_ROBIN",
+        "MANAGER_HIERARCHY",
+        "ATTRIBUTE_MATCH"
+      ]
+    },
+    "ruleConfig": {
+      "type": "object",
+      "minProperties": 1
+    }
+  },
+  "additionalProperties": false
+}
