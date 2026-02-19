@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -53,16 +54,17 @@ public class AdminAuditLogService {
         outbox.setAggregateType("ADMIN_ACTION_AUDIT");
         outbox.setAggregateId(String.valueOf(saved.getId()));
         outbox.setEventType("ADMIN_ACTION_" + action);
-        outbox.setPayloadJson(toJson(Map.of(
-                "id", saved.getId(),
-                "tenantId", tenantId,
-                "actor", actor,
-                "action", action,
-                "aggregateType", aggregateType,
-                "aggregateId", aggregateId,
-                "reasonCode", reasonCode,
-                "comment", comment,
-                "payload", payload == null ? Map.of() : payload)));
+        Map<String, Object> outboxPayload = new LinkedHashMap<>();
+        outboxPayload.put("id", saved.getId());
+        outboxPayload.put("tenantId", tenantId);
+        outboxPayload.put("actor", actor);
+        outboxPayload.put("action", action);
+        outboxPayload.put("aggregateType", aggregateType);
+        outboxPayload.put("aggregateId", aggregateId);
+        outboxPayload.put("reasonCode", reasonCode);
+        outboxPayload.put("comment", comment);
+        outboxPayload.put("payload", payload == null ? Map.of() : payload);
+        outbox.setPayloadJson(toJson(outboxPayload));
         outbox.setStatus("PENDING");
         outbox.setAttemptCount(0);
         outbox.setCreatedAt(Instant.now());

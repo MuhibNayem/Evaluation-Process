@@ -32,7 +32,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin/rules")
-@PreAuthorize("hasAuthority('ROLE_ADMIN')")
+@PreAuthorize("@devOrAdminAuthorization.allow(authentication)")
 public class RuleControlPlaneController {
 
     private final RuleControlPlaneService ruleControlPlaneService;

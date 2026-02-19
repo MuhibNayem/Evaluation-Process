@@ -76,16 +76,30 @@
         if (assignmentId) fetchData();
     });
 
+    function toggleMultiChoice(questionId: string, option: string, checked: boolean) {
+        const current = answers[questionId]?.selectedOptions ?? [];
+        if (checked) {
+            if (!current.includes(option)) {
+                answers[questionId].selectedOptions = [...current, option];
+            }
+            return;
+        }
+        answers[questionId].selectedOptions = current.filter((v: string) => v !== option);
+    }
+
     async function handleSubmit() {
         isSubmitting = true;
         try {
             // Transform answers object to list
             const answersList = Object.values(answers).map((a: any) => {
+                const selectedOptions = a.selectedOptions ?? [];
+                const normalizedValue =
+                    a.value ?? (selectedOptions.length === 1 ? selectedOptions[0] : null);
                 // Ensure correct format for backend
                 return {
                     questionId: a.questionId,
-                    value: a.value?.toString(), // Ensure string if numeric
-                    selectedOptions: a.selectedOptions,
+                    value: normalizedValue != null ? normalizedValue.toString() : null,
+                    selectedOptions,
                     textResponse: a.textResponse,
                     metadata: {},
                 };
@@ -94,7 +108,8 @@
             const payload = {
                 campaignId: assignment.campaignId,
                 assignmentId: assignment.id,
-                evaluatorId: "", // Backend resolves this from token/context usually, but logic in controller checks it
+                // Must be non-empty to satisfy request validation; backend resolves authenticated user.
+                evaluatorId: "context-user",
                 evaluateeId: assignment.evaluateeId,
                 templateId: template.id,
                 answers: answersList,
@@ -168,9 +183,7 @@
                                 />
                             {:else if question.type === "SINGLE_CHOICE"}
                                 <RadioGroup.Root
-                                    bind:value={
-                                        answers[question.id].selectedOptions[0]
-                                    }
+                                    value={answers[question.id]?.selectedOptions?.[0] ?? ""}
                                     onValueChange={(v) =>
                                         (answers[question.id].selectedOptions =
                                             [v])}
@@ -190,7 +203,7 @@
                                         </div>
                                     {/each}
                                 </RadioGroup.Root>
-                            {:else if question.type === "RATING"}
+                            {:else if question.type === "RATING" || question.type === "NUMERIC_RATING"}
                                 <div class="flex items-center gap-2">
                                     {#each [1, 2, 3, 4, 5] as rating}
                                         <button
@@ -206,7 +219,7 @@
                                 </div>
                             {:else if question.type === "BOOLEAN"}
                                 <RadioGroup.Root
-                                    bind:value={answers[question.id].value}
+                                    value={answers[question.id]?.value?.toString() ?? ""}
                                     onValueChange={(v) =>
                                         (answers[question.id].value = v)}
                                 >
@@ -235,6 +248,24 @@
                                         </div>
                                     </div>
                                 </RadioGroup.Root>
+                            {:else if question.type === "MULTIPLE_CHOICE"}
+                                <div class="space-y-2">
+                                    {#each question.options as option}
+                                        <div class="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`${question.id}-${option}`}
+                                                checked={answers[question.id]?.selectedOptions?.includes(option) ?? false}
+                                                onCheckedChange={(v) =>
+                                                    toggleMultiChoice(
+                                                        question.id,
+                                                        option,
+                                                        v === true,
+                                                    )}
+                                            />
+                                            <Label for={`${question.id}-${option}`}>{option}</Label>
+                                        </div>
+                                    {/each}
+                                </div>
                             {/if}
                         </div>
                     {/each}

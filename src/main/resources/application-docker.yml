@@ -4,6 +4,13 @@ spring:
     username: evaluation_user
     password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: ${RABBITMQ_USERNAME:evaluation_user}
+    password: ${RABBITMQ_PASSWORD:evaluation_password}
+  kafka:
+    bootstrap-servers: kafka:9092
   data:
     redis:
       host: redis
@@ -23,3 +30,13 @@ management:
   zipkin:
     tracing:
       endpoint: http://zipkin:9411/api/v2/spans
+
+evaluation:
+  service:
+    audience:
+      outbox:
+        transport: ${OUTBOX_TRANSPORT:LOG}
+        kafka:
+          enabled: true
+        rabbitmq:
+          enabled: true

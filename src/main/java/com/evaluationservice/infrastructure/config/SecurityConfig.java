@@ -36,6 +36,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable());
+        http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         if (devMode) {
             http.authorizeHttpRequests(authz -> authz.anyRequest().permitAll());
@@ -50,8 +51,6 @@ public class SecurityConfig {
                     .anyRequest().authenticated())
                     .exceptionHandling(exception -> exception
                             .authenticationEntryPoint(jwtAuthenticationEntryPoint));
-
-            http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         }
 
         http.sessionManagement(session -> session

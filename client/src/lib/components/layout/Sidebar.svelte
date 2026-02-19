@@ -5,6 +5,11 @@
         Users,
         FileText,
         CheckSquare,
+        Radio,
+        Settings,
+        Scale,
+        BarChart3,
+        CircleHelp,
     } from "@lucide/svelte";
     import { cn } from "$lib/utils.js";
 
@@ -16,6 +21,11 @@
         { href: "/campaigns", label: "Campaigns", icon: Users },
         { href: "/templates", label: "Templates", icon: FileText },
         { href: "/evaluations", label: "My Evaluations", icon: CheckSquare },
+        { href: "/audience", label: "Audience", icon: Radio },
+        { href: "/admin/rules", label: "Admin Rules", icon: Scale },
+        { href: "/reports", label: "Reports", icon: BarChart3 },
+        { href: "/admin/settings", label: "Settings", icon: Settings },
+        { href: "/faq", label: "FAQ", icon: CircleHelp },
     ];
 </script>
 

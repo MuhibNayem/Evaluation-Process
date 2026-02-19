@@ -1,7 +1,5 @@
 import { browser } from '$app/environment';
-
-// Set to true to bypass login during development
-const DEV_MODE = true;
+import { CLIENT_AUTO_AUTH, SECURITY_DEV_MODE } from '$lib/config.js';
 
 class AuthStore {
     token = $state<string | null>(null);
@@ -9,7 +7,7 @@ class AuthStore {
 
     constructor() {
         if (browser) {
-            if (DEV_MODE) {
+            if (CLIENT_AUTO_AUTH && SECURITY_DEV_MODE) {
                 // Auto-authenticate with a dev user
                 this.token = 'dev-token';
                 this.user = { username: 'admin', role: 'ADMIN' };
@@ -52,4 +50,3 @@ class AuthStore {
 }
 
 export const auth = new AuthStore();
-

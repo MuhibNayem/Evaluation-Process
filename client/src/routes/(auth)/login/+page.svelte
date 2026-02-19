@@ -7,6 +7,7 @@
     import { Input } from "$lib/components/ui/input/index.js";
     import { Label } from "$lib/components/ui/label/index.js";
     import { Loader2 } from "@lucide/svelte";
+    import { SECURITY_DEV_MODE } from "$lib/config.js";
 
     let username = $state("");
     let password = $state("");
@@ -95,11 +96,15 @@
         <Card.Footer
             class="flex flex-col space-y-2 text-center text-sm text-gray-500"
         >
-            <p>Demo credentials:</p>
-            <div class="flex justify-center space-x-4">
-                <span>admin / admin</span>
-                <span>evaluator / evaluator</span>
-            </div>
+            {#if SECURITY_DEV_MODE}
+                <p>Demo credentials:</p>
+                <div class="flex justify-center space-x-4">
+                    <span>admin / admin</span>
+                    <span>evaluator / evaluator</span>
+                </div>
+            {:else}
+                <p>Use your issued credentials.</p>
+            {/if}
         </Card.Footer>
     </Card.Root>
 </div>

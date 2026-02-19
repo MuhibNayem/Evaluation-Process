@@ -49,6 +49,15 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         // Skip JWT validation entirely in dev mode
         if (devMode) {
+            List<GrantedAuthority> devAuthorities = new ArrayList<>();
+            devAuthorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            devAuthorities.add(new SimpleGrantedAuthority("ROLE_EVALUATOR"));
+            devAuthorities.add(new SimpleGrantedAuthority("ROLE_EVALUATEE"));
+
+            UsernamePasswordAuthenticationToken authToken =
+                    new UsernamePasswordAuthenticationToken("dev-admin", null, devAuthorities);
+            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authToken);
             chain.doFilter(request, response);
             return;
         }
