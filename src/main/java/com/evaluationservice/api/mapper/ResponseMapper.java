@@ -75,6 +75,10 @@ public class ResponseMapper {
                 campaign.getAssignments().size(),
                 campaign.getCompletedAssignmentCount(),
                 campaign.getCompletionPercentage(),
+                campaign.getPublishedAt(),
+                campaign.getReopenedAt(),
+                campaign.getResultsPublishedAt(),
+                campaign.isLocked(),
                 campaign.getCreatedBy(),
                 campaign.getCreatedAt().value(),
                 campaign.getUpdatedAt().value());

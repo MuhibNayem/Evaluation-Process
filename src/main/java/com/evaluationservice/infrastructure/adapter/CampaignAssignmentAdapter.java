@@ -75,6 +75,11 @@ public class CampaignAssignmentAdapter implements AssignmentPersistencePort {
         entity.setEvaluatorRole(assignment.getEvaluatorRole().name());
         entity.setCompleted(assignment.isCompleted());
         entity.setEvaluationId(assignment.getEvaluationId());
+        entity.setStepType(assignment.getStepType());
+        entity.setSectionId(assignment.getSectionId());
+        entity.setFacultyId(assignment.getFacultyId());
+        entity.setAnonymityMode(assignment.getAnonymityMode());
+        entity.setStatus(assignment.getStatus() != null ? assignment.getStatus() : (assignment.isCompleted() ? "COMPLETED" : "ACTIVE"));
         entity.setCreatedAt(existingCreatedAt != null ? existingCreatedAt : now);
         entity.setUpdatedAt(now);
         return entity;
@@ -88,6 +93,11 @@ public class CampaignAssignmentAdapter implements AssignmentPersistencePort {
                 entity.getEvaluateeId(),
                 EvaluatorRole.valueOf(entity.getEvaluatorRole()),
                 entity.isCompleted(),
-                entity.getEvaluationId());
+                entity.getEvaluationId(),
+                entity.getStepType(),
+                entity.getSectionId(),
+                entity.getFacultyId(),
+                entity.getAnonymityMode(),
+                entity.getStatus());
     }
 }

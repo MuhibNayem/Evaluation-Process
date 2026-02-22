@@ -72,6 +72,18 @@ public class CampaignEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "published_at")
+    private Instant publishedAt;
+
+    @Column(name = "reopened_at")
+    private Instant reopenedAt;
+
+    @Column(name = "results_published_at")
+    private Instant resultsPublishedAt;
+
+    @Column(name = "locked", nullable = false)
+    private boolean locked;
+
     public CampaignEntity() {
     }
 
@@ -235,5 +247,37 @@ public class CampaignEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setPublishedAt(Instant publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+
+    public Instant getReopenedAt() {
+        return reopenedAt;
+    }
+
+    public void setReopenedAt(Instant reopenedAt) {
+        this.reopenedAt = reopenedAt;
+    }
+
+    public Instant getResultsPublishedAt() {
+        return resultsPublishedAt;
+    }
+
+    public void setResultsPublishedAt(Instant resultsPublishedAt) {
+        this.resultsPublishedAt = resultsPublishedAt;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
     }
 }

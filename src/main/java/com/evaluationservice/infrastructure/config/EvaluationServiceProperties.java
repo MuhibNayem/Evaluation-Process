@@ -284,6 +284,14 @@ public class EvaluationServiceProperties {
         private boolean enableCsvExport = true;
         /** Whether PDF export is enabled */
         private boolean enablePdfExport = false;
+        /** Enables campaign step-window module and APIs */
+        private boolean enableStepWindows = false;
+        /** Enables PDF-aligned lifecycle states and transitions */
+        private boolean enablePdfLifecycle = false;
+        /** Enables question bank and question versioning module */
+        private boolean enableQuestionBank = false;
+        /** Enables notification rule/template/delivery-log module */
+        private boolean enableNotificationRuleEngine = false;
 
         public boolean isAllowAnonymousMode() {
             return allowAnonymousMode;
@@ -315,6 +323,38 @@ public class EvaluationServiceProperties {
 
         public void setEnablePdfExport(boolean enablePdfExport) {
             this.enablePdfExport = enablePdfExport;
+        }
+
+        public boolean isEnableStepWindows() {
+            return enableStepWindows;
+        }
+
+        public void setEnableStepWindows(boolean enableStepWindows) {
+            this.enableStepWindows = enableStepWindows;
+        }
+
+        public boolean isEnablePdfLifecycle() {
+            return enablePdfLifecycle;
+        }
+
+        public void setEnablePdfLifecycle(boolean enablePdfLifecycle) {
+            this.enablePdfLifecycle = enablePdfLifecycle;
+        }
+
+        public boolean isEnableQuestionBank() {
+            return enableQuestionBank;
+        }
+
+        public void setEnableQuestionBank(boolean enableQuestionBank) {
+            this.enableQuestionBank = enableQuestionBank;
+        }
+
+        public boolean isEnableNotificationRuleEngine() {
+            return enableNotificationRuleEngine;
+        }
+
+        public void setEnableNotificationRuleEngine(boolean enableNotificationRuleEngine) {
+            this.enableNotificationRuleEngine = enableNotificationRuleEngine;
         }
     }
 

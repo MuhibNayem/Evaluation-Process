@@ -10,6 +10,7 @@ import com.evaluationservice.domain.enums.CampaignStatus;
 import com.evaluationservice.domain.exception.EntityNotFoundException;
 import com.evaluationservice.domain.value.CampaignId;
 import com.evaluationservice.domain.value.Timestamp;
+import com.evaluationservice.infrastructure.service.CampaignLifecycleEventService;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -32,18 +34,21 @@ public class CampaignManagementService implements CampaignManagementUseCase {
     private final AssignmentPersistencePort assignmentPersistencePort;
     private final ApplicationEventPublisher eventPublisher;
     private final DynamicAssignmentEngine dynamicAssignmentEngine;
+    private final CampaignLifecycleEventService campaignLifecycleEventService;
 
     public CampaignManagementService(
             CampaignPersistencePort campaignPersistencePort,
             TemplatePersistencePort templatePersistencePort,
             AssignmentPersistencePort assignmentPersistencePort,
             ApplicationEventPublisher eventPublisher,
-            DynamicAssignmentEngine dynamicAssignmentEngine) {
+            DynamicAssignmentEngine dynamicAssignmentEngine,
+            CampaignLifecycleEventService campaignLifecycleEventService) {
         this.campaignPersistencePort = Objects.requireNonNull(campaignPersistencePort);
         this.templatePersistencePort = Objects.requireNonNull(templatePersistencePort);
         this.assignmentPersistencePort = Objects.requireNonNull(assignmentPersistencePort);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
         this.dynamicAssignmentEngine = Objects.requireNonNull(dynamicAssignmentEngine);
+        this.campaignLifecycleEventService = Objects.requireNonNull(campaignLifecycleEventService);
     }
 
     @Override
@@ -101,15 +106,25 @@ public class CampaignManagementService implements CampaignManagementUseCase {
     @Override
     public Campaign activateCampaign(CampaignId campaignId) {
         var campaign = findCampaignOrThrow(campaignId);
+        String from = campaign.getStatus().name();
         campaign.activate();
-        return campaignPersistencePort.save(campaign);
+        Campaign saved = campaignPersistencePort.save(campaign);
+        logLifecycle(saved, from, saved.getStatus().name(), "ACTIVATE", null, null);
+        return saved;
     }
 
     @Override
     public Campaign closeCampaign(CampaignId campaignId) {
+        return closeCampaign(campaignId, null, null);
+    }
+
+    @Override
+    public Campaign closeCampaign(CampaignId campaignId, String actor, String reason) {
         var campaign = findCampaignOrThrow(campaignId);
+        String from = campaign.getStatus().name();
         campaign.close();
         Campaign saved = campaignPersistencePort.save(campaign);
+        logLifecycle(saved, from, saved.getStatus().name(), "CLOSE", actor, reason);
 
         eventPublisher.publishEvent(new com.evaluationservice.domain.event.CampaignClosedEvent(
                 campaignId,
@@ -121,10 +136,76 @@ public class CampaignManagementService implements CampaignManagementUseCase {
     }
 
     @Override
+    public Campaign publishCampaign(CampaignId campaignId) {
+        return publishCampaign(campaignId, null, null);
+    }
+
+    @Override
+    public Campaign publishCampaign(CampaignId campaignId, String actor, String reason) {
+        var campaign = findCampaignOrThrow(campaignId);
+        String from = campaign.getStatus().name();
+        campaign.publishOpen();
+        Campaign saved = campaignPersistencePort.save(campaign);
+        logLifecycle(saved, from, saved.getStatus().name(), "PUBLISH", actor, reason);
+        return saved;
+    }
+
+    @Override
+    public Campaign reopenCampaign(CampaignId campaignId) {
+        return reopenCampaign(campaignId, null, null);
+    }
+
+    @Override
+    public Campaign reopenCampaign(CampaignId campaignId, String actor, String reason) {
+        var campaign = findCampaignOrThrow(campaignId);
+        String from = campaign.getStatus().name();
+        campaign.reopen();
+        Campaign saved = campaignPersistencePort.save(campaign);
+        logLifecycle(saved, from, saved.getStatus().name(), "REOPEN", actor, reason);
+        return saved;
+    }
+
+    @Override
+    public Campaign publishResults(CampaignId campaignId) {
+        return publishResults(campaignId, null, null);
+    }
+
+    @Override
+    public Campaign publishResults(CampaignId campaignId, String actor, String reason) {
+        var campaign = findCampaignOrThrow(campaignId);
+        String from = campaign.getStatus().name();
+        campaign.publishResults();
+        Campaign saved = campaignPersistencePort.save(campaign);
+        logLifecycle(saved, from, saved.getStatus().name(), "PUBLISH_RESULTS", actor, reason);
+        return saved;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LifecycleImpactPreview previewLifecycleImpact(CampaignId campaignId, String action) {
+        var campaign = findCampaignOrThrow(campaignId);
+        long total = campaign.getAssignments().size();
+        long completed = campaign.getCompletedAssignmentCount();
+        long pending = Math.max(0, total - completed);
+        String normalizedAction = action == null ? "UNKNOWN" : action.trim().toUpperCase();
+        String summary = switch (normalizedAction) {
+            case "PUBLISH" -> "Publishing opens evaluator access and locks configuration paths.";
+            case "CLOSE" -> pending + " pending assignments may be blocked from further submission.";
+            case "REOPEN" -> "Reopen allows submission flows to continue for eligible assignments.";
+            case "PUBLISH_RESULTS" -> "Results become visible to configured viewer roles.";
+            default -> "Impact preview generated for requested action.";
+        };
+        return new LifecycleImpactPreview(campaignId, normalizedAction, total, completed, pending, summary);
+    }
+
+    @Override
     public Campaign archiveCampaign(CampaignId campaignId) {
         var campaign = findCampaignOrThrow(campaignId);
+        String from = campaign.getStatus().name();
         campaign.archive();
-        return campaignPersistencePort.save(campaign);
+        Campaign saved = campaignPersistencePort.save(campaign);
+        logLifecycle(saved, from, saved.getStatus().name(), "ARCHIVE", null, null);
+        return saved;
     }
 
     @Override
@@ -225,5 +306,24 @@ public class CampaignManagementService implements CampaignManagementUseCase {
     private Campaign findCampaignOrThrow(CampaignId campaignId) {
         return campaignPersistencePort.findById(campaignId)
                 .orElseThrow(() -> new EntityNotFoundException("Campaign", campaignId.value()));
+    }
+
+    private void logLifecycle(
+            Campaign campaign,
+            String fromStatus,
+            String toStatus,
+            String action,
+            String actor,
+            String reason) {
+        campaignLifecycleEventService.logTransition(
+                campaign.getId().value(),
+                fromStatus,
+                toStatus,
+                action,
+                actor,
+                reason,
+                Map.of(
+                        "campaignName", campaign.getName(),
+                        "completionPercentage", campaign.getCompletionPercentage()));
     }
 }

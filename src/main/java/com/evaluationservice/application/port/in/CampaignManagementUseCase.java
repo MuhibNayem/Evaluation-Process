@@ -74,6 +74,15 @@ public interface CampaignManagementUseCase {
                         boolean dryRun) {
         }
 
+        record LifecycleImpactPreview(
+                        CampaignId campaignId,
+                        String action,
+                        long totalAssignments,
+                        long completedAssignments,
+                        long pendingAssignments,
+                        String summary) {
+        }
+
         Campaign createCampaign(CreateCampaignCommand command);
 
         Campaign updateCampaign(UpdateCampaignCommand command);
@@ -81,6 +90,22 @@ public interface CampaignManagementUseCase {
         Campaign activateCampaign(CampaignId campaignId);
 
         Campaign closeCampaign(CampaignId campaignId);
+
+        Campaign closeCampaign(CampaignId campaignId, String actor, String reason);
+
+        Campaign publishCampaign(CampaignId campaignId);
+
+        Campaign publishCampaign(CampaignId campaignId, String actor, String reason);
+
+        Campaign reopenCampaign(CampaignId campaignId);
+
+        Campaign reopenCampaign(CampaignId campaignId, String actor, String reason);
+
+        Campaign publishResults(CampaignId campaignId);
+
+        Campaign publishResults(CampaignId campaignId, String actor, String reason);
+
+        LifecycleImpactPreview previewLifecycleImpact(CampaignId campaignId, String action);
 
         Campaign archiveCampaign(CampaignId campaignId);
 

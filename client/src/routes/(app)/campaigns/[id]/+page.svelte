@@ -10,6 +10,7 @@
     import { Separator } from "$lib/components/ui/separator/index.js";
     import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
     import { Input } from "$lib/components/ui/input/index.js";
+    import { Textarea } from "$lib/components/ui/textarea/index.js";
     import { Checkbox } from "$lib/components/ui/checkbox/index.js";
     import {
         Select,
@@ -31,6 +32,7 @@
         Sparkles,
     } from "@lucide/svelte";
     import AudienceBuilder from "$lib/components/campaign/AudienceBuilder.svelte";
+    import DataView from "$lib/components/data-view.svelte";
     import {
         defaultRuleConfig,
         normalizeRuleConfig,
@@ -59,6 +61,12 @@
     let dynamicRuleConfig = $state<Record<string, unknown>>(defaultRuleConfig("ATTRIBUTE_MATCH"));
     let dynamicReplaceExisting = $state(false);
     let dynamicDryRun = $state(true);
+    let lifecycleReason = $state("");
+    let lifecycleAction = $state("PUBLISH");
+    let lifecycleImpact = $state<any>(null);
+    let lifecycleEvents = $state<any[]>([]);
+    let stepDraftText = $state('{\"steps\":[]}');
+    let campaignSteps = $state<any[]>([]);
 
     async function fetchCampaign() {
         loading = true;
@@ -72,6 +80,7 @@
                 dynamicAssignmentRuleType,
                 campaign.assignmentRuleConfig,
             );
+            await Promise.all([loadLifecycleEvents(), loadCampaignSteps()]);
         } catch (err: any) {
             console.error(err);
             error = "Failed to load campaign.";
@@ -221,10 +230,87 @@
         }
     }
 
+    async function runLifecycle(endpoint: "publish" | "close" | "reopen" | "publish-results") {
+        isProcessing = true;
+        try {
+            const res = await api.post(`/campaigns/${campaignId}/lifecycle/${endpoint}`, {
+                reason: lifecycleReason || null,
+            });
+            campaign = res.data;
+            toast.success(`Lifecycle action ${endpoint} completed`);
+            await Promise.all([loadLifecycleEvents(), loadCampaignSteps()]);
+        } catch (err: any) {
+            toast.error(err.response?.data?.detail || `Lifecycle action ${endpoint} failed`);
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    async function fetchLifecycleImpact() {
+        isProcessing = true;
+        try {
+            const res = await api.post(`/campaigns/${campaignId}/lifecycle/impact-preview`, {
+                action: lifecycleAction,
+            });
+            lifecycleImpact = res.data;
+        } catch (err: any) {
+            toast.error(err.response?.data?.detail || "Failed to fetch lifecycle impact");
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    async function loadLifecycleEvents() {
+        try {
+            const res = await api.get(`/campaigns/${campaignId}/lifecycle/events`);
+            lifecycleEvents = res.data;
+        } catch {
+            lifecycleEvents = [];
+        }
+    }
+
+    async function loadCampaignSteps() {
+        try {
+            const res = await api.get(`/campaigns/${campaignId}/steps`);
+            campaignSteps = res.data;
+            stepDraftText = JSON.stringify({ steps: res.data.map((s: any) => ({
+                stepType: s.stepType,
+                enabled: s.enabled,
+                displayOrder: s.displayOrder,
+                openAt: s.openAt,
+                closeAt: s.closeAt,
+                lateAllowed: s.lateAllowed,
+                lateDays: s.lateDays,
+                instructions: s.instructions,
+                notes: s.notes,
+            })) }, null, 2);
+        } catch {
+            campaignSteps = [];
+        }
+    }
+
+    async function saveCampaignSteps() {
+        isProcessing = true;
+        try {
+            const payload = JSON.parse(stepDraftText || "{\"steps\":[]}");
+            const res = await api.put(`/campaigns/${campaignId}/steps`, payload);
+            campaignSteps = res.data;
+            toast.success("Campaign steps updated");
+        } catch (err: any) {
+            toast.error(err.response?.data?.detail || "Failed to update campaign steps");
+        } finally {
+            isProcessing = false;
+        }
+    }
+
     function getStatusColor(status: string) {
         switch (status) {
             case "ACTIVE":
                 return "bg-green-500";
+            case "PUBLISHED_OPEN":
+                return "bg-blue-600";
+            case "RESULTS_PUBLISHED":
+                return "bg-indigo-600";
             case "SCHEDULED":
                 return "bg-blue-500";
             case "CLOSED":
@@ -570,5 +656,82 @@
                 </Card.Content>
             </Card.Root>
         </div>
+
+        <div class="grid gap-6 md:grid-cols-2">
+            <Card.Root>
+                <Card.Header>
+                    <Card.Title>PDF Lifecycle Controls</Card.Title>
+                    <Card.Description>Publish/close/reopen/results endpoints and impact preview.</Card.Description>
+                </Card.Header>
+                <Card.Content class="space-y-3">
+                    <Input bind:value={lifecycleReason} placeholder="reason (optional)" />
+                    <div class="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onclick={() => runLifecycle("publish")} disabled={isProcessing}>Publish</Button>
+                        <Button size="sm" variant="outline" onclick={() => runLifecycle("close")} disabled={isProcessing}>Close</Button>
+                        <Button size="sm" variant="outline" onclick={() => runLifecycle("reopen")} disabled={isProcessing}>Reopen</Button>
+                        <Button size="sm" variant="outline" onclick={() => runLifecycle("publish-results")} disabled={isProcessing}>Publish Results</Button>
+                    </div>
+                    <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                        <Input bind:value={lifecycleAction} placeholder="Impact action e.g. PUBLISH_RESULTS" />
+                        <Button size="sm" onclick={fetchLifecycleImpact} disabled={isProcessing}>Impact Preview</Button>
+                    </div>
+                    {#if lifecycleImpact}
+                        <div class="rounded-md border bg-muted/30 p-3">
+                            <DataView data={lifecycleImpact} />
+                        </div>
+                    {/if}
+                </Card.Content>
+            </Card.Root>
+
+            <Card.Root>
+                <Card.Header>
+                    <Card.Title>Lifecycle Events</Card.Title>
+                    <Card.Description>GET /api/v1/campaigns/{campaignId}/lifecycle/events</Card.Description>
+                </Card.Header>
+                <Card.Content class="space-y-2">
+                    <Button size="sm" variant="outline" onclick={loadLifecycleEvents}>Refresh Events</Button>
+                    {#if lifecycleEvents.length === 0}
+                        <p class="text-sm text-muted-foreground">No events loaded.</p>
+                    {:else}
+                        <div class="space-y-2 max-h-[260px] overflow-auto pr-1">
+                            {#each lifecycleEvents as event}
+                                <div class="rounded-md border p-3 text-sm">
+                                    <p class="font-medium">{event.action}: {event.fromStatus || "-"} -> {event.toStatus}</p>
+                                    <p class="text-xs text-muted-foreground">by {event.actor} at {formatDate(event.createdAt)}</p>
+                                    {#if event.reason}
+                                        <p class="text-xs mt-1">Reason: {event.reason}</p>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                </Card.Content>
+            </Card.Root>
+        </div>
+
+        <Card.Root>
+            <Card.Header>
+                <Card.Title>Step Windows</Card.Title>
+                <Card.Description>GET/PUT /api/v1/campaigns/{campaignId}/steps</Card.Description>
+            </Card.Header>
+            <Card.Content class="space-y-3">
+                <div class="flex gap-2">
+                    <Button size="sm" variant="outline" onclick={loadCampaignSteps}>Load Steps</Button>
+                    <Button size="sm" onclick={saveCampaignSteps} disabled={isProcessing}>Save Steps JSON</Button>
+                </div>
+                <Textarea rows={12} bind:value={stepDraftText} />
+                {#if campaignSteps.length > 0}
+                    <div class="grid gap-2 md:grid-cols-2">
+                        {#each campaignSteps as step}
+                            <div class="rounded-md border p-3 text-sm">
+                                <p class="font-medium">{step.stepType} ({step.enabled ? "enabled" : "disabled"})</p>
+                                <p>Window: {step.openAt ? formatDate(step.openAt) : "-"} to {step.closeAt ? formatDate(step.closeAt) : "-"}</p>
+                                <p>Late: {step.lateAllowed ? `yes (${step.lateDays} day(s))` : "no"}</p>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            </Card.Content>
+        </Card.Root>
     {/if}
 </div>

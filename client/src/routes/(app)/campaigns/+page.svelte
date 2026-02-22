@@ -10,6 +10,7 @@
     import { Badge } from "$lib/components/ui/badge/index.js";
     import { Loader2, Plus, MoreHorizontal } from "@lucide/svelte";
     import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+    import DataView from "$lib/components/data-view.svelte";
     import { goto } from "$app/navigation";
     import { toast } from "svelte-sonner";
 
@@ -54,7 +55,11 @@
         switch (status) {
             case "ACTIVE":
                 return "default"; // primary
+            case "PUBLISHED_OPEN":
+                return "default";
             case "DRAFT":
+                return "secondary";
+            case "RESULTS_PUBLISHED":
                 return "secondary";
             case "CLOSED":
                 return "destructive"; // maybe not destructive, but distinctive
@@ -167,13 +172,13 @@
             </Button>
         </div>
         {#if reconcileResult}
-            <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto md:col-span-3">{JSON.stringify(reconcileResult, null, 2)}</pre>
+            <div class="rounded-md border bg-muted/30 p-3 md:col-span-3"><DataView data={reconcileResult} /></div>
         {/if}
         {#if reconcileReport}
-            <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto md:col-span-3">{JSON.stringify(reconcileReport, null, 2)}</pre>
+            <div class="rounded-md border bg-muted/30 p-3 md:col-span-3"><DataView data={reconcileReport} /></div>
         {/if}
         {#if backfillResult}
-            <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto md:col-span-3">{JSON.stringify(backfillResult, null, 2)}</pre>
+            <div class="rounded-md border bg-muted/30 p-3 md:col-span-3"><DataView data={backfillResult} /></div>
         {/if}
     </Card.Content>
 </Card.Root>

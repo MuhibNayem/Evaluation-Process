@@ -230,6 +230,7 @@ class EvaluationSubmissionServiceIntegrationTest {
         assignment.setEvaluatorRole("PEER");
         assignment.setCompleted(false);
         assignment.setEvaluationId(null);
+        assignment.setStatus("ACTIVE");
         assignment.setCreatedAt(Instant.now());
         assignment.setUpdatedAt(Instant.now());
         assignmentRepository.save(assignment);

@@ -18,6 +18,11 @@ public class CampaignAssignment {
     private final EvaluatorRole evaluatorRole;
     private boolean completed;
     private String evaluationId;
+    private String stepType;
+    private String sectionId;
+    private String facultyId;
+    private String anonymityMode;
+    private String status;
 
     public CampaignAssignment(
             String id,
@@ -27,6 +32,34 @@ public class CampaignAssignment {
             EvaluatorRole evaluatorRole,
             boolean completed,
             String evaluationId) {
+        this(
+                id,
+                campaignId,
+                evaluatorId,
+                evaluateeId,
+                evaluatorRole,
+                completed,
+                evaluationId,
+                null,
+                null,
+                null,
+                null,
+                completed ? "COMPLETED" : "ACTIVE");
+    }
+
+    public CampaignAssignment(
+            String id,
+            CampaignId campaignId,
+            String evaluatorId,
+            String evaluateeId,
+            EvaluatorRole evaluatorRole,
+            boolean completed,
+            String evaluationId,
+            String stepType,
+            String sectionId,
+            String facultyId,
+            String anonymityMode,
+            String status) {
         this.id = Objects.requireNonNull(id, "Assignment ID cannot be null");
         this.campaignId = Objects.requireNonNull(campaignId, "Campaign ID cannot be null");
         this.evaluatorId = Objects.requireNonNull(evaluatorId, "Evaluator ID cannot be null");
@@ -34,11 +67,17 @@ public class CampaignAssignment {
         this.evaluatorRole = Objects.requireNonNull(evaluatorRole, "Evaluator role cannot be null");
         this.completed = completed;
         this.evaluationId = evaluationId;
+        this.stepType = normalize(stepType);
+        this.sectionId = normalize(sectionId);
+        this.facultyId = normalize(facultyId);
+        this.anonymityMode = normalize(anonymityMode);
+        this.status = normalize(status) != null ? normalize(status) : (completed ? "COMPLETED" : "ACTIVE");
     }
 
     public void markCompleted(String evaluationId) {
         this.completed = true;
         this.evaluationId = Objects.requireNonNull(evaluationId);
+        this.status = "COMPLETED";
     }
 
     // --- Getters ---
@@ -71,6 +110,26 @@ public class CampaignAssignment {
         return evaluationId;
     }
 
+    public String getStepType() {
+        return stepType;
+    }
+
+    public String getSectionId() {
+        return sectionId;
+    }
+
+    public String getFacultyId() {
+        return facultyId;
+    }
+
+    public String getAnonymityMode() {
+        return anonymityMode;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -84,5 +143,13 @@ public class CampaignAssignment {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

@@ -8,6 +8,7 @@
     import { Badge } from "$lib/components/ui/badge/index.js";
     import { Separator } from "$lib/components/ui/separator/index.js";
     import { Loader2, Save, CircleHelp } from "@lucide/svelte";
+    import DataView from "$lib/components/data-view.svelte";
     import { toast } from "svelte-sonner";
 
     let settings = $state<any[]>([]);
@@ -233,7 +234,9 @@
                         </div>
                     </div>
                     {#if selectedSetting}
-                        <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(selectedSetting, null, 2)}</pre>
+                        <div class="rounded-md border bg-muted/30 p-3">
+                            <DataView data={selectedSetting} />
+                        </div>
                     {/if}
                 </Card.Content>
             </Card.Root>

@@ -11,6 +11,7 @@
     import { Switch } from "$lib/components/ui/switch/index.js";
     import { Loader2, RefreshCcw, Plus, Trash2 } from "@lucide/svelte";
     import HelpInfo from "$lib/components/help-info.svelte";
+    import DataView from "$lib/components/data-view.svelte";
     import { toast } from "svelte-sonner";
 
     let tenantId = $state(DEFAULT_TENANT_ID);
@@ -567,10 +568,10 @@
                         </div>
                     </div>
                 </div>
-                <details class="rounded-md border p-3">
-                    <summary class="cursor-pointer text-sm font-medium">Advanced Debug (Raw JSON)</summary>
-                    <pre class="mt-2 rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(capabilities, null, 2)}</pre>
-                </details>
+                <div class="rounded-md border p-3">
+                    <p class="text-sm font-medium mb-2">Capability Details</p>
+                    <DataView data={capabilities} />
+                </div>
             {:else}
                 <p class="text-sm text-muted-foreground">No capability data yet.</p>
             {/if}
@@ -959,15 +960,14 @@
         <Card.Header>
             <div class="flex items-center gap-1">
                 <Card.Title>Last API Response</Card.Title>
-                <HelpInfo title="Last API Response" what="Raw response from the most recent action." why="Quick debugging and verification." how="Use this to copy IDs and inspect generated results." example="id=42, status=DRAFT" />
+                <HelpInfo title="Last API Response" what="Response from the most recent action." why="Quick verification of returned fields and identifiers." how="Use this to inspect returned values such as IDs, status, and counts." example="id=42, status=DRAFT" />
             </div>
         </Card.Header>
         <Card.Content>
             {#if lastResponse}
-                <details class="rounded-md border p-3">
-                    <summary class="cursor-pointer text-sm font-medium">Advanced Debug (Raw API JSON)</summary>
-                    <pre class="mt-2 rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(lastResponse, null, 2)}</pre>
-                </details>
+                <div class="rounded-md border p-3">
+                    <DataView data={lastResponse} />
+                </div>
             {:else}
                 <p class="text-sm text-muted-foreground">No response captured yet.</p>
             {/if}

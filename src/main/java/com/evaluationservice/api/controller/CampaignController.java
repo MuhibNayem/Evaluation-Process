@@ -3,11 +3,17 @@ package com.evaluationservice.api.controller;
 import com.evaluationservice.api.dto.request.AddAssignmentsRequest;
 import com.evaluationservice.api.dto.request.CreateCampaignRequest;
 import com.evaluationservice.api.dto.request.GenerateDynamicAssignmentsRequest;
+import com.evaluationservice.api.dto.request.LifecycleActionRequest;
+import com.evaluationservice.api.dto.request.LifecycleImpactPreviewRequest;
+import com.evaluationservice.api.dto.request.UpdateCampaignStepsRequest;
 import com.evaluationservice.api.dto.response.AssignmentParityReportResponse;
 import com.evaluationservice.api.dto.response.AssignmentReconciliationResponse;
 import com.evaluationservice.api.dto.response.AssignmentBackfillResponse;
 import com.evaluationservice.api.dto.response.CampaignResponse;
+import com.evaluationservice.api.dto.response.CampaignLifecycleEventResponse;
+import com.evaluationservice.api.dto.response.CampaignStepResponse;
 import com.evaluationservice.api.dto.response.DynamicAssignmentResponse;
+import com.evaluationservice.api.dto.response.LifecycleImpactPreviewResponse;
 import com.evaluationservice.api.mapper.ResponseMapper;
 import com.evaluationservice.application.port.in.CampaignManagementUseCase;
 import com.evaluationservice.application.port.in.CampaignManagementUseCase.AssignmentEntry;
@@ -22,10 +28,13 @@ import com.evaluationservice.infrastructure.security.SecurityContextUserProvider
 import com.evaluationservice.infrastructure.service.AssignmentParityReportService;
 import com.evaluationservice.infrastructure.service.AssignmentReconciliationService;
 import com.evaluationservice.infrastructure.service.AssignmentBackfillService;
+import com.evaluationservice.infrastructure.service.CampaignLifecycleEventService;
+import com.evaluationservice.infrastructure.service.CampaignStepService;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -46,6 +55,8 @@ public class CampaignController {
     private final AssignmentReconciliationService assignmentReconciliationService;
     private final AssignmentParityReportService assignmentParityReportService;
     private final AssignmentBackfillService assignmentBackfillService;
+    private final CampaignStepService campaignStepService;
+    private final CampaignLifecycleEventService campaignLifecycleEventService;
 
     public CampaignController(
             CampaignManagementUseCase campaignUseCase,
@@ -54,7 +65,9 @@ public class CampaignController {
             SettingsResolverService settingsResolver,
             AssignmentReconciliationService assignmentReconciliationService,
             AssignmentParityReportService assignmentParityReportService,
-            AssignmentBackfillService assignmentBackfillService) {
+            AssignmentBackfillService assignmentBackfillService,
+            CampaignStepService campaignStepService,
+            CampaignLifecycleEventService campaignLifecycleEventService) {
         this.campaignUseCase = campaignUseCase;
         this.responseMapper = responseMapper;
         this.userProvider = userProvider;
@@ -62,6 +75,8 @@ public class CampaignController {
         this.assignmentReconciliationService = assignmentReconciliationService;
         this.assignmentParityReportService = assignmentParityReportService;
         this.assignmentBackfillService = assignmentBackfillService;
+        this.campaignStepService = campaignStepService;
+        this.campaignLifecycleEventService = campaignLifecycleEventService;
     }
 
     @PostMapping
@@ -137,6 +152,77 @@ public class CampaignController {
     public ResponseEntity<CampaignResponse> closeCampaign(@PathVariable String id) {
         Campaign campaign = campaignUseCase.closeCampaign(CampaignId.of(id));
         return ResponseEntity.ok(responseMapper.toResponse(campaign));
+    }
+
+    @PostMapping("/{id}/lifecycle/publish")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CampaignResponse> publishCampaign(
+            @PathVariable String id,
+            @RequestBody(required = false) LifecycleActionRequest request) {
+        ensureFeatureEnabled("features.enable-pdf-lifecycle");
+        String reason = request == null ? null : request.reason();
+        Campaign campaign = campaignUseCase.publishCampaign(CampaignId.of(id), userProvider.getCurrentUserId(), reason);
+        return ResponseEntity.ok(responseMapper.toResponse(campaign));
+    }
+
+    @PostMapping("/{id}/lifecycle/close")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CampaignResponse> closeCampaignLifecycle(
+            @PathVariable String id,
+            @RequestBody(required = false) LifecycleActionRequest request) {
+        ensureFeatureEnabled("features.enable-pdf-lifecycle");
+        String reason = request == null ? null : request.reason();
+        Campaign campaign = campaignUseCase.closeCampaign(CampaignId.of(id), userProvider.getCurrentUserId(), reason);
+        return ResponseEntity.ok(responseMapper.toResponse(campaign));
+    }
+
+    @PostMapping("/{id}/lifecycle/reopen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CampaignResponse> reopenCampaign(
+            @PathVariable String id,
+            @RequestBody(required = false) LifecycleActionRequest request) {
+        ensureFeatureEnabled("features.enable-pdf-lifecycle");
+        String reason = request == null ? null : request.reason();
+        Campaign campaign = campaignUseCase.reopenCampaign(CampaignId.of(id), userProvider.getCurrentUserId(), reason);
+        return ResponseEntity.ok(responseMapper.toResponse(campaign));
+    }
+
+    @PostMapping("/{id}/lifecycle/publish-results")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CampaignResponse> publishResults(
+            @PathVariable String id,
+            @RequestBody(required = false) LifecycleActionRequest request) {
+        ensureFeatureEnabled("features.enable-pdf-lifecycle");
+        String reason = request == null ? null : request.reason();
+        Campaign campaign = campaignUseCase.publishResults(
+                CampaignId.of(id),
+                userProvider.getCurrentUserId(),
+                reason);
+        return ResponseEntity.ok(responseMapper.toResponse(campaign));
+    }
+
+    @PostMapping("/{id}/lifecycle/impact-preview")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<LifecycleImpactPreviewResponse> lifecycleImpactPreview(
+            @PathVariable String id,
+            @RequestBody(required = false) LifecycleImpactPreviewRequest request) {
+        ensureFeatureEnabled("features.enable-pdf-lifecycle");
+        String action = request == null ? null : request.action();
+        var preview = campaignUseCase.previewLifecycleImpact(CampaignId.of(id), action);
+        return ResponseEntity.ok(new LifecycleImpactPreviewResponse(
+                preview.campaignId().value(),
+                preview.action(),
+                preview.totalAssignments(),
+                preview.completedAssignments(),
+                preview.pendingAssignments(),
+                preview.summary()));
+    }
+
+    @GetMapping("/{id}/lifecycle/events")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CampaignLifecycleEventResponse>> lifecycleEvents(@PathVariable String id) {
+        ensureFeatureEnabled("features.enable-pdf-lifecycle");
+        return ResponseEntity.ok(campaignLifecycleEventService.listRecent(id));
     }
 
     @PostMapping("/{id}/archive")
@@ -231,6 +317,22 @@ public class CampaignController {
         return ResponseEntity.ok(assignmentReconciliationService.reconcile(id));
     }
 
+    @GetMapping("/{id}/steps")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CampaignStepResponse>> getCampaignSteps(@PathVariable String id) {
+        ensureFeatureEnabled("features.enable-step-windows");
+        return ResponseEntity.ok(campaignStepService.list(id));
+    }
+
+    @PutMapping("/{id}/steps")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CampaignStepResponse>> updateCampaignSteps(
+            @PathVariable String id,
+            @Valid @RequestBody UpdateCampaignStepsRequest request) {
+        ensureFeatureEnabled("features.enable-step-windows");
+        return ResponseEntity.ok(campaignStepService.replace(id, request.steps()));
+    }
+
     @GetMapping("/assignments/reconcile/report")
     public ResponseEntity<AssignmentParityReportResponse> reconcileAssignmentsReport(
             @RequestParam(defaultValue = "1000") int maxCampaigns) {
@@ -249,5 +351,11 @@ public class CampaignController {
             return settingsResolver.resolveInt("pagination.default-page-size");
         }
         return Math.min(requestedSize, settingsResolver.resolveInt("pagination.max-page-size"));
+    }
+
+    private void ensureFeatureEnabled(String key) {
+        if (!settingsResolver.resolveBoolean(key)) {
+            throw new IllegalStateException("Feature is disabled: " + key);
+        }
     }
 }

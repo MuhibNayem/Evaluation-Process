@@ -113,6 +113,15 @@ public class Evaluation {
         this.updatedAt = Timestamp.now();
     }
 
+    public void reopenForRevision() {
+        if (this.status != EvaluationStatus.COMPLETED && this.status != EvaluationStatus.FLAGGED) {
+            throw new IllegalStateException("Only COMPLETED or FLAGGED evaluations can be reopened");
+        }
+        this.status = EvaluationStatus.DRAFT;
+        this.submittedAt = null;
+        this.updatedAt = Timestamp.now();
+    }
+
     // --- Query Methods ---
 
     public List<Answer> answersForSection(Section section) {

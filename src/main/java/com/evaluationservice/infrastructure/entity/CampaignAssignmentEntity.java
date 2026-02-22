@@ -3,6 +3,8 @@ package com.evaluationservice.infrastructure.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -35,6 +37,21 @@ public class CampaignAssignmentEntity {
 
     @Column(name = "evaluation_id", length = 36)
     private String evaluationId;
+
+    @Column(name = "step_type", length = 30)
+    private String stepType;
+
+    @Column(name = "section_id", length = 120)
+    private String sectionId;
+
+    @Column(name = "faculty_id", length = 120)
+    private String facultyId;
+
+    @Column(name = "anonymity_mode", length = 30)
+    private String anonymityMode;
+
+    @Column(name = "status", nullable = false, length = 30)
+    private String status;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -115,5 +132,53 @@ public class CampaignAssignmentEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getStepType() {
+        return stepType;
+    }
+
+    public void setStepType(String stepType) {
+        this.stepType = stepType;
+    }
+
+    public String getSectionId() {
+        return sectionId;
+    }
+
+    public void setSectionId(String sectionId) {
+        this.sectionId = sectionId;
+    }
+
+    public String getFacultyId() {
+        return facultyId;
+    }
+
+    public void setFacultyId(String facultyId) {
+        this.facultyId = facultyId;
+    }
+
+    public String getAnonymityMode() {
+        return anonymityMode;
+    }
+
+    public void setAnonymityMode(String anonymityMode) {
+        this.anonymityMode = anonymityMode;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    @PrePersist
+    @PreUpdate
+    void applyDefaults() {
+        if (status == null || status.isBlank()) {
+            status = completed ? "COMPLETED" : "ACTIVE";
+        }
     }
 }

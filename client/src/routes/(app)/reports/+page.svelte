@@ -10,6 +10,7 @@
     } from "$lib/components/ui/select/index.js";
     import * as Dialog from "$lib/components/ui/dialog/index.js";
     import * as Card from "$lib/components/ui/card/index.js";
+    import DataView from "$lib/components/data-view.svelte";
     import { Loader2, FileDown, FileText } from "@lucide/svelte";
     import { toast } from "svelte-sonner";
 
@@ -264,7 +265,7 @@
                     {#if loadingCampaignReport}
                         <Loader2 class="mr-2 h-4 w-4 animate-spin" />
                     {/if}
-                    View Campaign JSON
+                    View Campaign Report
                 </Button>
             </Card.Footer>
         </Card.Root>
@@ -342,7 +343,7 @@
                     {#if loadingIndividualReport}
                         <Loader2 class="mr-2 h-4 w-4 animate-spin" />
                     {/if}
-                    View Individual JSON
+                    View Individual Report
                 </Button>
             </Card.Footer>
         </Card.Root>
@@ -351,10 +352,12 @@
     {#if campaignReport}
         <Card.Root>
             <Card.Header>
-                <Card.Title>Campaign Report (JSON)</Card.Title>
+                <Card.Title>Campaign Report</Card.Title>
             </Card.Header>
             <Card.Content>
-                <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(campaignReport, null, 2)}</pre>
+                <div class="rounded-md border bg-muted/30 p-3">
+                    <DataView data={campaignReport} />
+                </div>
             </Card.Content>
         </Card.Root>
     {/if}
@@ -362,10 +365,12 @@
     {#if individualReport}
         <Card.Root>
             <Card.Header>
-                <Card.Title>Individual Report (JSON)</Card.Title>
+                <Card.Title>Individual Report</Card.Title>
             </Card.Header>
             <Card.Content>
-                <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(individualReport, null, 2)}</pre>
+                <div class="rounded-md border bg-muted/30 p-3">
+                    <DataView data={individualReport} />
+                </div>
             </Card.Content>
         </Card.Root>
     {/if}

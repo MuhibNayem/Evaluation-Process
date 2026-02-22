@@ -37,6 +37,10 @@ public class Campaign {
     private String assignmentRuleType;
     private Map<String, Object> assignmentRuleConfig;
     private List<CampaignAssignment> assignments;
+    private Instant publishedAt;
+    private Instant reopenedAt;
+    private Instant resultsPublishedAt;
+    private boolean locked;
     private final String createdBy;
     private final Timestamp createdAt;
     private Timestamp updatedAt;
@@ -61,6 +65,56 @@ public class Campaign {
             String createdBy,
             Timestamp createdAt,
             Timestamp updatedAt) {
+        this(
+                id,
+                name,
+                description,
+                templateId,
+                templateVersion,
+                status,
+                dateRange,
+                scoringMethod,
+                anonymousMode,
+                anonymousRoles,
+                minimumRespondents,
+                audienceSourceType,
+                audienceSourceConfig,
+                assignmentRuleType,
+                assignmentRuleConfig,
+                assignments,
+                null,
+                null,
+                null,
+                false,
+                createdBy,
+                createdAt,
+                updatedAt);
+    }
+
+    public Campaign(
+            CampaignId id,
+            String name,
+            String description,
+            TemplateId templateId,
+            int templateVersion,
+            CampaignStatus status,
+            DateRange dateRange,
+            ScoringMethod scoringMethod,
+            boolean anonymousMode,
+            Set<EvaluatorRole> anonymousRoles,
+            int minimumRespondents,
+            String audienceSourceType,
+            Map<String, Object> audienceSourceConfig,
+            String assignmentRuleType,
+            Map<String, Object> assignmentRuleConfig,
+            List<CampaignAssignment> assignments,
+            Instant publishedAt,
+            Instant reopenedAt,
+            Instant resultsPublishedAt,
+            boolean locked,
+            String createdBy,
+            Timestamp createdAt,
+            Timestamp updatedAt) {
         this.id = Objects.requireNonNull(id, "Campaign ID cannot be null");
         this.name = Objects.requireNonNull(name, "Campaign name cannot be null");
         this.description = description;
@@ -78,6 +132,10 @@ public class Campaign {
         this.assignmentRuleType = normalizeType(assignmentRuleType);
         this.assignmentRuleConfig = copyConfig(assignmentRuleConfig);
         this.assignments = assignments != null ? new ArrayList<>(assignments) : new ArrayList<>();
+        this.publishedAt = publishedAt;
+        this.reopenedAt = reopenedAt;
+        this.resultsPublishedAt = resultsPublishedAt;
+        this.locked = locked;
         this.createdBy = Objects.requireNonNull(createdBy, "CreatedBy cannot be null");
         this.createdAt = createdAt != null ? createdAt : Timestamp.now();
         this.updatedAt = updatedAt != null ? updatedAt : Timestamp.now();
@@ -91,6 +149,15 @@ public class Campaign {
 
     public void activate() {
         transitionTo(CampaignStatus.ACTIVE);
+        this.locked = true;
+    }
+
+    public void publishOpen() {
+        transitionTo(CampaignStatus.PUBLISHED_OPEN);
+        if (this.publishedAt == null) {
+            this.publishedAt = Instant.now();
+        }
+        this.locked = true;
     }
 
     public void schedule() {
@@ -99,10 +166,27 @@ public class Campaign {
 
     public void close() {
         transitionTo(CampaignStatus.CLOSED);
+        this.locked = true;
     }
 
     public void archive() {
         transitionTo(CampaignStatus.ARCHIVED);
+        this.locked = true;
+    }
+
+    public void reopen() {
+        transitionTo(CampaignStatus.PUBLISHED_OPEN);
+        if (this.publishedAt == null) {
+            this.publishedAt = Instant.now();
+        }
+        this.reopenedAt = Instant.now();
+        this.locked = true;
+    }
+
+    public void publishResults() {
+        transitionTo(CampaignStatus.RESULTS_PUBLISHED);
+        this.resultsPublishedAt = Instant.now();
+        this.locked = true;
     }
 
     private void transitionTo(CampaignStatus target) {
@@ -114,7 +198,7 @@ public class Campaign {
     }
 
     public void ensureActive() {
-        if (this.status != CampaignStatus.ACTIVE) {
+        if (this.status != CampaignStatus.ACTIVE && this.status != CampaignStatus.PUBLISHED_OPEN) {
             throw new CampaignNotActiveException(this.id);
         }
     }
@@ -140,8 +224,8 @@ public class Campaign {
     }
 
     public void extendDeadline(Instant newEndDate) {
-        if (this.status != CampaignStatus.ACTIVE) {
-            throw new IllegalStateException("Can only extend deadline of active campaigns");
+        if (this.status != CampaignStatus.ACTIVE && this.status != CampaignStatus.PUBLISHED_OPEN) {
+            throw new IllegalStateException("Can only extend deadline of open campaigns");
         }
         this.dateRange = this.dateRange.extendEndDate(newEndDate);
         this.updatedAt = Timestamp.now();
@@ -292,6 +376,22 @@ public class Campaign {
 
     public String getCreatedBy() {
         return createdBy;
+    }
+
+    public Instant getPublishedAt() {
+        return publishedAt;
+    }
+
+    public Instant getReopenedAt() {
+        return reopenedAt;
+    }
+
+    public Instant getResultsPublishedAt() {
+        return resultsPublishedAt;
+    }
+
+    public boolean isLocked() {
+        return locked;
     }
 
     public Timestamp getCreatedAt() {

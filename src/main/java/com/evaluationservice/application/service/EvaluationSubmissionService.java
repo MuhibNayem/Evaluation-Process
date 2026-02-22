@@ -14,11 +14,14 @@ import com.evaluationservice.domain.value.CampaignId;
 import com.evaluationservice.domain.value.EvaluationId;
 import com.evaluationservice.domain.value.Score;
 import com.evaluationservice.domain.value.Timestamp;
+import com.evaluationservice.infrastructure.repository.CampaignStepRepository;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,6 +39,8 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
     private final TemplatePersistencePort templatePersistencePort;
     private final ScoringService scoringService;
     private final ApplicationEventPublisher eventPublisher;
+    private final SettingsResolverService settingsResolverService;
+    private final CampaignStepRepository campaignStepRepository;
 
     public EvaluationSubmissionService(
             EvaluationPersistencePort evaluationPersistencePort,
@@ -43,13 +48,17 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
             AssignmentPersistencePort assignmentPersistencePort,
             TemplatePersistencePort templatePersistencePort,
             ScoringService scoringService,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            SettingsResolverService settingsResolverService,
+            CampaignStepRepository campaignStepRepository) {
         this.evaluationPersistencePort = Objects.requireNonNull(evaluationPersistencePort);
         this.campaignPersistencePort = Objects.requireNonNull(campaignPersistencePort);
         this.assignmentPersistencePort = Objects.requireNonNull(assignmentPersistencePort);
         this.templatePersistencePort = Objects.requireNonNull(templatePersistencePort);
         this.scoringService = Objects.requireNonNull(scoringService);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
+        this.settingsResolverService = Objects.requireNonNull(settingsResolverService);
+        this.campaignStepRepository = Objects.requireNonNull(campaignStepRepository);
     }
 
     @Override
@@ -65,6 +74,7 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
                 .orElseThrow(() -> new EntityNotFoundException("Campaign", command.campaignId().value()));
         campaign.ensureActive();
         validateAssignmentOwnership(command, campaign);
+        validateStepWindow(command.assignmentId(), command.campaignId());
 
         // Get template for scoring
         var template = templatePersistencePort.findById(
@@ -154,6 +164,13 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
         evaluationPersistencePort.save(evaluation);
     }
 
+    @Override
+    public Evaluation reopenEvaluation(EvaluationId evaluationId) {
+        var evaluation = findEvaluationOrThrow(evaluationId);
+        evaluation.reopenForRevision();
+        return evaluationPersistencePort.save(evaluation);
+    }
+
     private Evaluation findEvaluationOrThrow(EvaluationId evaluationId) {
         return evaluationPersistencePort.findById(evaluationId)
                 .orElseThrow(() -> new EntityNotFoundException("Evaluation", evaluationId.value()));
@@ -171,6 +188,48 @@ public class EvaluationSubmissionService implements EvaluationSubmissionUseCase 
 
         if (!valid) {
             throw new IllegalArgumentException("Assignment does not match campaign/evaluator/evaluatee");
+        }
+    }
+
+    private void validateStepWindow(String assignmentId, CampaignId campaignId) {
+        if (!settingsResolverService.resolveBoolean("features.enable-step-windows")) {
+            return;
+        }
+
+        var assignment = assignmentPersistencePort.findById(assignmentId).orElse(null);
+        if (assignment == null) {
+            return;
+        }
+        if ("INACTIVE".equalsIgnoreCase(assignment.getStatus())) {
+            throw new IllegalStateException("Assignment is inactive and cannot be submitted");
+        }
+        String stepType = assignment.getStepType();
+        if (stepType == null || stepType.isBlank()) {
+            return;
+        }
+
+        var stepOpt = campaignStepRepository.findByCampaignIdAndStepType(campaignId.value(), stepType.trim().toUpperCase());
+        if (stepOpt.isEmpty()) {
+            return;
+        }
+        var step = stepOpt.get();
+        if (!step.isEnabled()) {
+            throw new IllegalStateException("Submission blocked: step is disabled (" + step.getStepType() + ")");
+        }
+
+        Instant now = Instant.now();
+        if (step.getOpenAt() != null && now.isBefore(step.getOpenAt())) {
+            throw new IllegalStateException("Submission blocked: step window not opened yet");
+        }
+
+        if (step.getCloseAt() != null && now.isAfter(step.getCloseAt())) {
+            if (!step.isLateAllowed()) {
+                throw new IllegalStateException("Submission blocked: step window is closed");
+            }
+            Instant lateDeadline = step.getCloseAt().plus(step.getLateDays(), ChronoUnit.DAYS);
+            if (now.isAfter(lateDeadline)) {
+                throw new IllegalStateException("Submission blocked: late submission window is closed");
+            }
         }
     }
 }

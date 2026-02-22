@@ -121,6 +121,7 @@ public class AssignmentBackfillService {
                 entity.setEvaluatorRole(evaluatorRole);
                 entity.setCompleted(asBoolean(item.get("completed")));
                 entity.setEvaluationId(asText(item.get("evaluationId")));
+                entity.setStatus(entity.isCompleted() ? "COMPLETED" : "ACTIVE");
                 entity.setCreatedAt(now);
                 entity.setUpdatedAt(now);
                 valid.add(entity);

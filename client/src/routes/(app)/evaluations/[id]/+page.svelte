@@ -9,6 +9,7 @@
     import { toast } from "svelte-sonner";
 
     import { Badge } from "$lib/components/ui/badge/index.js";
+    import DataView from "$lib/components/data-view.svelte";
 
     // @ts-ignore
     let evaluationId = $derived($page.params.id);
@@ -22,6 +23,7 @@
     let template = $state<any>(null);
     let initialAnswers = $state<Record<string, any>>({});
     let mode = $state<"create" | "edit" | "view">("edit");
+    let adminDetail = $state<any>(null);
 
     async function fetchData() {
         isLoading = true;
@@ -58,6 +60,13 @@
                         textResponse: a.textResponse,
                     };
                 });
+            }
+
+            try {
+                const adminRes = await api.get(`/evaluations/${evaluationId}/admin-detail`);
+                adminDetail = adminRes.data;
+            } catch {
+                adminDetail = null;
             }
         } catch (err) {
             console.error(err);
@@ -129,6 +138,20 @@
             processingAction = false;
         }
     }
+
+    async function handleReopen() {
+        processingAction = true;
+        try {
+            await api.post(`/evaluations/${evaluationId}/reopen`);
+            await fetchData();
+            toast.success("Evaluation reopened");
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to reopen evaluation");
+        } finally {
+            processingAction = false;
+        }
+    }
 </script>
 
 <div class="flex flex-col gap-6 max-w-4xl mx-auto pb-20">
@@ -177,6 +200,14 @@
                 >
                     <Ban class="mr-2 h-4 w-4" /> Invalidate
                 </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={handleReopen}
+                    disabled={processingAction}
+                >
+                    Reopen
+                </Button>
             </div>
         {/if}
     </div>
@@ -190,6 +221,12 @@
             {error}
         </div>
     {:else}
+        {#if adminDetail}
+            <div class="rounded-md border bg-muted/20 p-3 text-xs overflow-auto">
+                <p class="font-medium mb-1">Admin Submission Detail</p>
+                <DataView data={adminDetail} />
+            </div>
+        {/if}
         <EvaluationForm
             {template}
             {initialAnswers}

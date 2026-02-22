@@ -47,6 +47,19 @@ public class GlobalExceptionHandler {
         return buildProblemDetail(HttpStatus.CONFLICT, ex);
     }
 
+    @ExceptionHandler(DuplicateAssignmentException.class)
+    ProblemDetail handleDuplicateAssignment(DuplicateAssignmentException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Duplicate Assignment");
+        pd.setType(URI.create(ERROR_BASE_URI + "duplicate-assignment"));
+        pd.setProperty("campaignId", ex.getCampaignId());
+        pd.setProperty("evaluatorId", ex.getEvaluatorId());
+        pd.setProperty("evaluateeId", ex.getEvaluateeId());
+        pd.setProperty("evaluatorRole", ex.getEvaluatorRole());
+        pd.setProperty("existingAssignmentId", ex.getExistingAssignmentId());
+        return pd;
+    }
+
     @ExceptionHandler(InvalidStateTransitionException.class)
     ProblemDetail handleInvalidTransition(InvalidStateTransitionException ex) {
         return buildProblemDetail(HttpStatus.valueOf(422), ex);

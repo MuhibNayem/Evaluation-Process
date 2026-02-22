@@ -196,6 +196,10 @@ evaluation:
       enable-reports: true
       enable-csv-export: true
       enable-pdf-export: false
+      enable-step-windows: false
+      enable-pdf-lifecycle: false
+      enable-question-bank: true
+      enable-notification-rule-engine: false
 
     # Assignment storage cutover mode: JSON | DUAL | V2
     assignment:

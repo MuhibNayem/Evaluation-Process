@@ -11,6 +11,8 @@
     import * as RadioGroup from "$lib/components/ui/radio-group/index.js";
     import { Checkbox } from "$lib/components/ui/checkbox/index.js";
     import { Loader2, ArrowLeft, Save } from "@lucide/svelte";
+    import DataView from "$lib/components/data-view.svelte";
+    import { toast } from "svelte-sonner";
 
     // We get assignmentId from the URL
     // @ts-ignore
@@ -23,6 +25,8 @@
     let assignment = $state<any>(null);
     let campaign = $state<any>(null);
     let template = $state<any>(null);
+    let validationResponse = $state<any>(null);
+    let receipt = $state<any>(null);
 
     // Form State: Map questionId -> Answer
     let answers = $state<Record<string, any>>({});
@@ -89,6 +93,7 @@
 
     async function handleSubmit() {
         isSubmitting = true;
+        validationResponse = null;
         try {
             // Transform answers object to list
             const answersList = Object.values(answers).map((a: any) => {
@@ -115,11 +120,25 @@
                 answers: answersList,
             };
 
-            await api.post("/evaluations", payload);
-            goto("/evaluations");
+            const validationRes = await api.post("/evaluations/validate-submit", payload);
+            validationResponse = validationRes.data;
+            if (!validationRes.data.valid) {
+                toast.error(`Validation failed with ${validationRes.data.issueCount} issue(s)`);
+                isSubmitting = false;
+                return;
+            }
+
+            const submitRes = await api.post("/evaluations", payload);
+            const evaluationId = submitRes.data?.id;
+            if (evaluationId) {
+                const receiptRes = await api.get(`/evaluations/${evaluationId}/receipt`);
+                receipt = receiptRes.data;
+                toast.success("Evaluation submitted");
+            }
+            setTimeout(() => goto("/evaluations"), 1200);
         } catch (err: any) {
             console.error(err);
-            error = "Failed to submit evaluation.";
+            error = err.response?.data?.detail || "Failed to submit evaluation.";
         } finally {
             isSubmitting = false;
         }
@@ -153,6 +172,30 @@
             {error}
         </div>
     {:else}
+        {#if validationResponse && !validationResponse.valid}
+            <Card.Root>
+                <Card.Header><Card.Title>Validation Issues</Card.Title></Card.Header>
+                <Card.Content>
+                    <ul class="list-disc pl-6 text-sm space-y-1">
+                        {#each validationResponse.issues || [] as issue}
+                            <li>{issue.code}: {issue.message} {issue.questionId ? `(question: ${issue.questionId})` : ""}</li>
+                        {/each}
+                    </ul>
+                </Card.Content>
+            </Card.Root>
+        {/if}
+
+        {#if receipt}
+            <Card.Root>
+                <Card.Header><Card.Title>Submission Receipt</Card.Title></Card.Header>
+                <Card.Content>
+                    <div class="rounded-md border bg-muted/30 p-3">
+                        <DataView data={receipt} />
+                    </div>
+                </Card.Content>
+            </Card.Root>
+        {/if}
+
         {#each template.sections as section}
             <Card.Root>
                 <Card.Header>

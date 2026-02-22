@@ -17,6 +17,7 @@ import com.evaluationservice.domain.value.CampaignId;
 import com.evaluationservice.domain.value.DateRange;
 import com.evaluationservice.domain.value.TemplateId;
 import com.evaluationservice.domain.value.Timestamp;
+import com.evaluationservice.infrastructure.repository.CampaignStepRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,9 +43,19 @@ class EvaluationSubmissionServiceTest {
         TemplatePersistencePort templatePort = mock(TemplatePersistencePort.class);
         ScoringService scoringService = mock(ScoringService.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        SettingsResolverService settingsResolverService = mock(SettingsResolverService.class);
+        CampaignStepRepository campaignStepRepository = mock(CampaignStepRepository.class);
 
         EvaluationSubmissionService service = new EvaluationSubmissionService(
-                evaluationPort, campaignPort, assignmentPort, templatePort, scoringService, eventPublisher);
+                evaluationPort,
+                campaignPort,
+                assignmentPort,
+                templatePort,
+                scoringService,
+                eventPublisher,
+                settingsResolverService,
+                campaignStepRepository);
+        when(settingsResolverService.resolveBoolean("features.enable-step-windows")).thenReturn(false);
 
         CampaignId campaignId = CampaignId.of("camp-1");
         when(evaluationPort.findByAssignmentId("assign-1")).thenReturn(Optional.empty());
@@ -80,9 +91,19 @@ class EvaluationSubmissionServiceTest {
         TemplatePersistencePort templatePort = mock(TemplatePersistencePort.class);
         ScoringService scoringService = mock(ScoringService.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        SettingsResolverService settingsResolverService = mock(SettingsResolverService.class);
+        CampaignStepRepository campaignStepRepository = mock(CampaignStepRepository.class);
 
         EvaluationSubmissionService service = new EvaluationSubmissionService(
-                evaluationPort, campaignPort, assignmentPort, templatePort, scoringService, eventPublisher);
+                evaluationPort,
+                campaignPort,
+                assignmentPort,
+                templatePort,
+                scoringService,
+                eventPublisher,
+                settingsResolverService,
+                campaignStepRepository);
+        when(settingsResolverService.resolveBoolean("features.enable-step-windows")).thenReturn(false);
 
         CampaignId campaignId = CampaignId.of("camp-2");
         Campaign campaign = activeCampaign(campaignId);

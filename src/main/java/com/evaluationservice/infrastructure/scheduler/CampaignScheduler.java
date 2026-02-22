@@ -89,8 +89,9 @@ public class CampaignScheduler {
     }
 
     private void autoCloseExpiredCampaigns(Instant now) {
-        List<Campaign> active = campaignPersistencePort
-                .findByStatus(CampaignStatus.ACTIVE, 0, 1000);
+        List<Campaign> active = new java.util.ArrayList<>();
+        active.addAll(campaignPersistencePort.findByStatus(CampaignStatus.ACTIVE, 0, 1000));
+        active.addAll(campaignPersistencePort.findByStatus(CampaignStatus.PUBLISHED_OPEN, 0, 1000));
 
         int closed = 0;
         for (Campaign campaign : active) {
@@ -112,8 +113,9 @@ public class CampaignScheduler {
     }
 
     private void sendDeadlineReminders(Instant now) {
-        List<Campaign> active = campaignPersistencePort
-                .findByStatus(CampaignStatus.ACTIVE, 0, 1000);
+        List<Campaign> active = new java.util.ArrayList<>();
+        active.addAll(campaignPersistencePort.findByStatus(CampaignStatus.ACTIVE, 0, 1000));
+        active.addAll(campaignPersistencePort.findByStatus(CampaignStatus.PUBLISHED_OPEN, 0, 1000));
 
         Instant reminderThreshold = now.plus(reminderDays, ChronoUnit.DAYS);
 

@@ -50,6 +50,11 @@ Auth in this service is environment-dependent:
 
 Admin-only APIs:
 1. `/api/v1/admin/rules/**` requires `ROLE_ADMIN` (method-level guard).
+2. Campaign lifecycle and step-window management APIs require `ROLE_ADMIN`:
+3. `/api/v1/campaigns/{id}/lifecycle/**`
+4. `/api/v1/campaigns/{id}/steps`
+5. Rich assignment admin APIs require `ROLE_ADMIN`:
+6. `/api/v1/assignments/**`
 
 ### Mock login (dev mode only)
 - `POST /api/v1/auth/login`
@@ -98,6 +103,113 @@ Constraints:
 1. `POST /api/v1/campaigns/{id}/activate`
 2. `POST /api/v1/campaigns/{id}/close`
 3. `POST /api/v1/campaigns/{id}/archive`
+
+### PDF lifecycle operations (feature-flagged)
+
+Feature flags:
+1. `features.enable-pdf-lifecycle`
+2. `features.enable-step-windows` (for step APIs)
+
+Admin routes:
+1. `POST /api/v1/campaigns/{id}/lifecycle/publish`
+2. `POST /api/v1/campaigns/{id}/lifecycle/close`
+3. `POST /api/v1/campaigns/{id}/lifecycle/reopen`
+4. `POST /api/v1/campaigns/{id}/lifecycle/publish-results`
+5. `POST /api/v1/campaigns/{id}/lifecycle/impact-preview`
+6. `GET /api/v1/campaigns/{id}/lifecycle/events`
+7. `GET /api/v1/campaigns/{id}/steps`
+8. `PUT /api/v1/campaigns/{id}/steps`
+
+Lifecycle action request body (optional for publish/close/reopen/publish-results):
+```json
+{
+  "reason": "Approved by committee"
+}
+```
+
+Lifecycle impact preview request:
+```json
+{
+  "action": "PUBLISH_RESULTS"
+}
+```
+
+Lifecycle impact preview response example:
+```json
+{
+  "campaignId": "c-001",
+  "action": "PUBLISH_RESULTS",
+  "totalAssignments": 120,
+  "completedAssignments": 96,
+  "pendingAssignments": 24,
+  "summary": "Results become visible to configured viewer roles."
+}
+```
+
+Lifecycle events response item example:
+```json
+{
+  "id": 101,
+  "campaignId": "c-001",
+  "fromStatus": "CLOSED",
+  "toStatus": "RESULTS_PUBLISHED",
+  "action": "PUBLISH_RESULTS",
+  "actor": "admin-user",
+  "reason": "Board approved release",
+  "metadata": {
+    "campaignName": "Spring 2026 Faculty Evaluation",
+    "completionPercentage": 80.0
+  },
+  "createdAt": "2026-02-22T08:15:30Z"
+}
+```
+
+Step upsert request example:
+```json
+{
+  "steps": [
+    {
+      "stepType": "STUDENT",
+      "enabled": true,
+      "displayOrder": 1,
+      "openAt": "2026-03-01T00:00:00Z",
+      "closeAt": "2026-03-10T23:59:59Z",
+      "lateAllowed": false,
+      "lateDays": 0,
+      "instructions": "Complete student feedback first",
+      "notes": "Window is strict"
+    },
+    {
+      "stepType": "PEER",
+      "enabled": true,
+      "displayOrder": 2,
+      "openAt": "2026-03-11T00:00:00Z",
+      "closeAt": "2026-03-20T23:59:59Z",
+      "lateAllowed": true,
+      "lateDays": 2,
+      "instructions": "Peer review period",
+      "notes": null
+    }
+  ]
+}
+```
+
+Step response item example:
+```json
+{
+  "id": 10,
+  "campaignId": "c-001",
+  "stepType": "STUDENT",
+  "enabled": true,
+  "displayOrder": 1,
+  "openAt": "2026-03-01T00:00:00Z",
+  "closeAt": "2026-03-10T23:59:59Z",
+  "lateAllowed": false,
+  "lateDays": 0,
+  "instructions": "Complete student feedback first",
+  "notes": "Window is strict"
+}
+```
 
 ### Manual assignment
 - `POST /api/v1/campaigns/{id}/assignments`
@@ -171,6 +283,60 @@ Request:
 2. `GET /api/v1/campaigns/assignments/reconcile/report?maxCampaigns=1000`
 3. `POST /api/v1/campaigns/assignments/backfill?dryRun=true&maxCampaigns=1000`
 
+### Rich assignment admin APIs (Phase 3)
+1. `GET /api/v1/assignments?campaignId={id}&stepType={type}&sectionId={id}&facultyId={id}&status={status}&evaluatorId={id}&evaluateeId={id}&page=0&size=20&sortBy=updatedAt&sortDir=desc`
+2. `GET /api/v1/assignments/{id}`
+3. `POST /api/v1/assignments`
+4. `PUT /api/v1/assignments/{id}`
+
+List response includes:
+1. `items`
+2. `page`
+3. `size`
+4. `totalItems`
+5. `totalPages`
+
+Create request example:
+```json
+{
+  "campaignId": "c-001",
+  "evaluatorId": "e-100",
+  "evaluateeId": "u-200",
+  "evaluatorRole": "PEER",
+  "stepType": "PEER",
+  "sectionId": "SEC-A",
+  "facultyId": "FAC-01",
+  "anonymityMode": "VISIBLE",
+  "status": "ACTIVE"
+}
+```
+
+Duplicate conflict response (`409`) example:
+```json
+{
+  "type": "https://api.evaluationservice.com/errors/duplicate-assignment",
+  "title": "Duplicate Assignment",
+  "status": 409,
+  "detail": "Duplicate assignment tuple for campaign/evaluator/evaluatee/role",
+  "campaignId": "c-001",
+  "evaluatorId": "e-100",
+  "evaluateeId": "u-200",
+  "evaluatorRole": "PEER",
+  "existingAssignmentId": "a-existing"
+}
+```
+
+### Evaluator dashboard summary (Phase 3)
+1. `GET /api/v1/evaluators/me/dashboard`
+
+Response fields:
+1. `assignedCount`
+2. `completedCount`
+3. `pendingCount`
+4. `draftCount`
+5. `submittedCount`
+6. `completionPercentage`
+
 ---
 
 ## Evaluation APIs
@@ -188,9 +354,32 @@ Required fields:
 
 Note:
 1. If authenticated non-anonymous user exists, backend uses authenticated identity as evaluator.
+2. When `features.enable-step-windows=true`, submission is enforced against assignment step window policy:
+3. step must be enabled
+4. current time must be within open/close window, or inside configured late window
+5. inactive assignments are blocked
+
+### Pre-submit validation (Phase 3)
+- `POST /api/v1/evaluations/validate-submit`
+
+Uses submit payload shape and returns machine-readable issues before final submission.
+Type-aware issue codes now include:
+1. `NUMERIC_REQUIRED`
+2. `TEXT_REQUIRED`
+3. `CHOICE_INVALID`
+4. `OPTION_INVALID`
+5. `BOOLEAN_REQUIRED`
+6. `NPS_OUT_OF_RANGE`
 
 ### Get evaluation
 - `GET /api/v1/evaluations/{id}`
+
+### Submission receipt (Phase 3)
+- `GET /api/v1/evaluations/{id}/receipt`
+
+### Admin submission detail and reopen (Phase 3)
+1. `GET /api/v1/evaluations/{id}/admin-detail` (admin only)
+2. `POST /api/v1/evaluations/{id}/reopen` (admin only)
 
 ### Save draft
 - `PUT /api/v1/evaluations/{id}`
@@ -214,6 +403,76 @@ Note:
 5. `POST /api/v1/templates/{id}/publish`
 6. `POST /api/v1/templates/{id}/deprecate`
 7. `DELETE /api/v1/templates/{id}`
+
+---
+
+## Phase 4: Question Bank and Scoring Preview APIs
+
+Question bank APIs are admin-only and require:
+1. `ROLE_ADMIN`
+2. `features.enable-question-bank=true`
+
+Question bank sets:
+1. `POST /api/v1/questions-bank/sets`
+2. `GET /api/v1/questions-bank/sets?tenantId={tenantId}&status={status}`
+
+Question bank items:
+1. `POST /api/v1/questions-bank/sets/{setId}/items`
+2. `GET /api/v1/questions-bank/sets/{setId}/items?status={status}`
+
+Question item versions:
+1. `POST /api/v1/questions-bank/items/{itemId}/versions`
+2. `GET /api/v1/questions-bank/items/{itemId}/versions?status={status}`
+3. `POST /api/v1/questions-bank/items/{itemId}/versions/{versionNo}/activate`
+4. `GET /api/v1/questions-bank/items/{itemId}/versions/compare?fromVersion=1&toVersion=2`
+
+Scoring preview:
+1. `POST /api/v1/scoring/preview` (admin only)
+2. Input: template id + sample answers + optional scoring override
+3. Output: total score + section-level breakdown
+
+Scoring preview request example:
+```json
+{
+  "templateId": "tmpl-score",
+  "answers": [
+    { "questionId": "q1", "value": 8 }
+  ]
+}
+```
+
+---
+
+## Phase 5: Notification Rule Engine APIs
+
+Notification APIs are admin-only and require:
+1. `ROLE_ADMIN`
+2. `features.enable-notification-rule-engine=true`
+
+Rules:
+1. `POST /api/v1/admin/notifications/rules`
+2. `GET /api/v1/admin/notifications/rules?campaignId={campaignId}`
+3. `GET /api/v1/admin/notifications/rules/{id}`
+4. `PUT /api/v1/admin/notifications/rules/{id}`
+5. `DELETE /api/v1/admin/notifications/rules/{id}`
+
+Templates:
+1. `POST /api/v1/admin/notifications/templates`
+2. `GET /api/v1/admin/notifications/templates?campaignId={campaignId}`
+3. `GET /api/v1/admin/notifications/templates/{id}`
+4. `PUT /api/v1/admin/notifications/templates/{id}`
+5. `DELETE /api/v1/admin/notifications/templates/{id}`
+6. `POST /api/v1/admin/notifications/templates/{id}/test-render`
+
+Deliveries:
+1. `GET /api/v1/admin/notifications/deliveries?campaignId={campaignId}&ruleId={ruleId}&status={status}`
+2. `POST /api/v1/admin/notifications/deliveries/{id}/retry`
+
+Runtime behavior:
+1. `EvaluationSubmittedEvent` triggers rules with `triggerType=EVALUATION_SUBMITTED`.
+2. `CampaignClosedEvent` triggers rules with `triggerType=CAMPAIGN_CLOSED`.
+3. Scheduled rules run via `evaluation.service.notification.scheduler-cron` and are suppressed when the feature flag is disabled.
+4. `PUBLISHED` template validation requires every `{{placeholder}}` to be listed in `requiredVariables`.
 
 ---
 

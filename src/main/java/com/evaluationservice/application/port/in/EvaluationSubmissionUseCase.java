@@ -45,4 +45,6 @@ public interface EvaluationSubmissionUseCase {
     void flagEvaluation(EvaluationId evaluationId);
 
     void invalidateEvaluation(EvaluationId evaluationId);
+
+    Evaluation reopenEvaluation(EvaluationId evaluationId);
 }

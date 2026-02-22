@@ -160,6 +160,10 @@ public class CampaignAdapter implements CampaignPersistencePort {
                 mapped.getAssignmentRuleType(),
                 mapped.getAssignmentRuleConfig(),
                 assignments,
+                mapped.getPublishedAt(),
+                mapped.getReopenedAt(),
+                mapped.getResultsPublishedAt(),
+                mapped.isLocked(),
                 mapped.getCreatedBy(),
                 mapped.getCreatedAt(),
                 mapped.getUpdatedAt());

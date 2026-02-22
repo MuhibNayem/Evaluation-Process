@@ -27,6 +27,10 @@ public record CampaignResponse(
         int totalAssignments,
         long completedAssignments,
         double completionPercentage,
+        Instant publishedAt,
+        Instant reopenedAt,
+        Instant resultsPublishedAt,
+        boolean locked,
         String createdBy,
         Instant createdAt,
         Instant updatedAt) {

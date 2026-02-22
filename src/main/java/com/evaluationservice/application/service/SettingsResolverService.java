@@ -126,6 +126,14 @@ public class SettingsResolverService {
             case "features.enable-reports" -> String.valueOf(defaultProperties.getFeatures().isEnableReports());
             case "features.enable-csv-export" -> String.valueOf(defaultProperties.getFeatures().isEnableCsvExport());
             case "features.enable-pdf-export" -> String.valueOf(defaultProperties.getFeatures().isEnablePdfExport());
+            case "features.enable-step-windows" ->
+                String.valueOf(defaultProperties.getFeatures().isEnableStepWindows());
+            case "features.enable-pdf-lifecycle" ->
+                String.valueOf(defaultProperties.getFeatures().isEnablePdfLifecycle());
+            case "features.enable-question-bank" ->
+                String.valueOf(defaultProperties.getFeatures().isEnableQuestionBank());
+            case "features.enable-notification-rule-engine" ->
+                String.valueOf(defaultProperties.getFeatures().isEnableNotificationRuleEngine());
 
             // Pagination
             case "pagination.default-page-size" ->

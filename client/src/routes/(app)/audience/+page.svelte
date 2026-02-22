@@ -11,6 +11,7 @@
     import { Switch } from "$lib/components/ui/switch/index.js";
     import { Loader2, RefreshCcw, Plus, Trash2 } from "@lucide/svelte";
     import HelpInfo from "$lib/components/help-info.svelte";
+    import DataView from "$lib/components/data-view.svelte";
     import { toast } from "svelte-sonner";
 
     const AUDIENCE_SOURCE_TYPES = ["JSON", "CSV", "REST", "JDBC"] as const;
@@ -722,7 +723,9 @@
                     {/if}
                 </div>
                 {#if lastIngestionResponse}
-                    <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(lastIngestionResponse, null, 2)}</pre>
+                    <div class="rounded-md border bg-muted/30 p-3">
+                        <DataView data={lastIngestionResponse} />
+                    </div>
                 {/if}
             </Card.Content>
             <Card.Footer>
@@ -819,7 +822,9 @@
                     {/if}
                 </div>
                 {#if mappingValidationText}
-                    <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{mappingValidationText}</pre>
+                    <div class="rounded-md border bg-muted/30 p-3">
+                        <DataView data={lastValidationResponse || mappingValidationText} />
+                    </div>
                 {/if}
             </Card.Content>
             <Card.Footer class="flex gap-2">
@@ -911,10 +916,14 @@
                     >
                 </div>
                 {#if selectedRun}
-                    <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(selectedRun, null, 2)}</pre>
+                    <div class="rounded-md border bg-muted/30 p-3">
+                        <DataView data={selectedRun} />
+                    </div>
                 {/if}
                 {#if runRejections.length > 0}
-                    <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(runRejections, null, 2)}</pre>
+                    <div class="rounded-md border bg-muted/30 p-3">
+                        <DataView data={runRejections} />
+                    </div>
                 {/if}
             </Card.Content>
         </Card.Root>
@@ -990,7 +999,9 @@
                 </div>
                 <Button variant="outline" onclick={() => selectedProfileId && loadProfileEvents(selectedProfileId)} disabled={!selectedProfileId || isBusy}>Load Events</Button>
                 {#if profileEvents.length > 0}
-                    <pre class="rounded-md border bg-muted/30 p-3 text-xs overflow-auto">{JSON.stringify(profileEvents, null, 2)}</pre>
+                    <div class="rounded-md border bg-muted/30 p-3">
+                        <DataView data={profileEvents} />
+                    </div>
                 {/if}
                 {#if lastValidationResponse}
                     <p class="text-xs text-muted-foreground">Last mapping validation is shown above.</p>

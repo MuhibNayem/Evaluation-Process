@@ -2,6 +2,9 @@ package com.evaluationservice.api.controller;
 
 import com.evaluationservice.api.dto.request.SubmitEvaluationRequest;
 import com.evaluationservice.api.dto.response.EvaluationResponse;
+import com.evaluationservice.api.dto.response.AdminSubmissionDetailResponse;
+import com.evaluationservice.api.dto.response.SubmissionReceiptResponse;
+import com.evaluationservice.api.dto.response.SubmissionValidationResponse;
 import com.evaluationservice.api.mapper.ResponseMapper;
 import com.evaluationservice.application.port.in.EvaluationSubmissionUseCase;
 import com.evaluationservice.application.port.in.EvaluationSubmissionUseCase.SubmitEvaluationCommand;
@@ -11,10 +14,13 @@ import com.evaluationservice.domain.value.CampaignId;
 import com.evaluationservice.domain.value.EvaluationId;
 import com.evaluationservice.infrastructure.config.EvaluationServiceProperties;
 import com.evaluationservice.infrastructure.security.SecurityContextUserProvider;
+import com.evaluationservice.infrastructure.service.EvaluationAdminService;
+import com.evaluationservice.infrastructure.service.EvaluationValidationService;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,16 +37,22 @@ public class EvaluationController {
     private final ResponseMapper responseMapper;
     private final EvaluationServiceProperties properties;
     private final SecurityContextUserProvider userProvider;
+    private final EvaluationValidationService validationService;
+    private final EvaluationAdminService evaluationAdminService;
 
     public EvaluationController(
             EvaluationSubmissionUseCase evaluationUseCase,
             ResponseMapper responseMapper,
             EvaluationServiceProperties properties,
-            SecurityContextUserProvider userProvider) {
+            SecurityContextUserProvider userProvider,
+            EvaluationValidationService validationService,
+            EvaluationAdminService evaluationAdminService) {
         this.evaluationUseCase = evaluationUseCase;
         this.responseMapper = responseMapper;
         this.properties = properties;
         this.userProvider = userProvider;
+        this.validationService = validationService;
+        this.evaluationAdminService = evaluationAdminService;
     }
 
     @PostMapping
@@ -70,6 +82,41 @@ public class EvaluationController {
     public ResponseEntity<EvaluationResponse> getEvaluation(@PathVariable String id) {
         Evaluation evaluation = evaluationUseCase.getEvaluation(EvaluationId.of(id));
         return ResponseEntity.ok(responseMapper.toResponse(evaluation));
+    }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<SubmissionReceiptResponse> getSubmissionReceipt(@PathVariable String id) {
+        Evaluation evaluation = evaluationUseCase.getEvaluation(EvaluationId.of(id));
+        return ResponseEntity.ok(new SubmissionReceiptResponse(
+                evaluation.getId().value(),
+                evaluation.getCampaignId().value(),
+                evaluation.getAssignmentId(),
+                evaluation.getEvaluatorId(),
+                evaluation.getEvaluateeId(),
+                evaluation.getStatus(),
+                evaluation.getSubmittedAt() != null ? evaluation.getSubmittedAt().value() : null,
+                evaluation.getTotalScore() != null ? evaluation.getTotalScore().value().doubleValue() : null));
+    }
+
+    @PostMapping("/validate-submit")
+    public ResponseEntity<SubmissionValidationResponse> validateSubmit(
+            @Valid @RequestBody SubmitEvaluationRequest request) {
+        List<Answer> answers = request.answers().stream()
+                .map(a -> new Answer(
+                        UUID.randomUUID().toString(),
+                        a.questionId(),
+                        a.value(),
+                        a.selectedOptions(),
+                        a.textResponse(),
+                        a.metadata()))
+                .toList();
+        return ResponseEntity.ok(validationService.validate(request.templateId(), answers));
+    }
+
+    @GetMapping("/{id}/admin-detail")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminSubmissionDetailResponse> adminDetail(@PathVariable String id) {
+        return ResponseEntity.ok(evaluationAdminService.detail(id));
     }
 
     @PutMapping("/{id}")
@@ -136,6 +183,13 @@ public class EvaluationController {
     @PostMapping("/{id}/invalidate")
     public ResponseEntity<Void> invalidateEvaluation(@PathVariable String id) {
         evaluationUseCase.invalidateEvaluation(EvaluationId.of(id));
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/reopen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> reopenEvaluation(@PathVariable String id) {
+        evaluationAdminService.reopenSubmission(id);
         return ResponseEntity.ok().build();
     }
 

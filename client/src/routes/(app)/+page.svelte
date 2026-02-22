@@ -21,12 +21,17 @@
         recentActivity: [],
     });
     let loading = $state(true);
+    let evaluatorDashboard = $state<any>(null);
 
     async function fetchStats() {
         loading = true;
         try {
-            const res = await api.get("/dashboard/stats");
-            stats = res.data;
+            const [statsRes, evalRes] = await Promise.all([
+                api.get("/dashboard/stats"),
+                api.get("/evaluators/me/dashboard").catch(() => null),
+            ]);
+            stats = statsRes.data;
+            evaluatorDashboard = evalRes?.data ?? null;
         } catch (err) {
             console.error("Failed to load dashboard stats", err);
         } finally {
@@ -120,10 +125,24 @@
                 <Card.Title>Quick Actions</Card.Title>
             </Card.Header>
             <Card.Content class="grid gap-2">
-                <!-- Placeholder for quick actions -->
-                <p class="text-sm text-muted-foreground">Create Campaign</p>
-                <p class="text-sm text-muted-foreground">New Template</p>
+                <a class="text-sm text-muted-foreground underline" href="/campaigns/new">Create Campaign</a>
+                <a class="text-sm text-muted-foreground underline" href="/templates/new">New Template</a>
+                <a class="text-sm text-muted-foreground underline" href="/admin/notifications">Notification Rules</a>
             </Card.Content>
         </Card.Root>
     </div>
+
+    {#if evaluatorDashboard}
+        <Card.Root>
+            <Card.Header>
+                <Card.Title>My Evaluation Workload</Card.Title>
+                <Card.Description>GET /api/v1/evaluators/me/dashboard</Card.Description>
+            </Card.Header>
+            <Card.Content class="grid gap-3 md:grid-cols-3">
+                <div class="rounded-md border p-3"><p class="text-xs text-muted-foreground">Assigned</p><p class="text-2xl font-bold">{evaluatorDashboard.assignedCount}</p></div>
+                <div class="rounded-md border p-3"><p class="text-xs text-muted-foreground">Pending</p><p class="text-2xl font-bold">{evaluatorDashboard.pendingCount}</p></div>
+                <div class="rounded-md border p-3"><p class="text-xs text-muted-foreground">Completed</p><p class="text-2xl font-bold">{evaluatorDashboard.completedCount}</p></div>
+            </Card.Content>
+        </Card.Root>
+    {/if}
 </div>

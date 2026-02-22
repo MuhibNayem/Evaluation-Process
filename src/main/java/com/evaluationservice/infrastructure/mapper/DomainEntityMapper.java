@@ -82,6 +82,10 @@ public class DomainEntityMapper {
         entity.setCreatedBy(domain.getCreatedBy());
         entity.setCreatedAt(domain.getCreatedAt().value());
         entity.setUpdatedAt(domain.getUpdatedAt().value());
+        entity.setPublishedAt(domain.getPublishedAt());
+        entity.setReopenedAt(domain.getReopenedAt());
+        entity.setResultsPublishedAt(domain.getResultsPublishedAt());
+        entity.setLocked(domain.isLocked());
         return entity;
     }
 
@@ -104,6 +108,10 @@ public class DomainEntityMapper {
                 entity.getAssignmentRuleType(),
                 deserializeObjectMap(entity.getAssignmentRuleConfigJson()),
                 deserializeAssignments(entity.getAssignmentsJson(), CampaignId.of(entity.getId())),
+                entity.getPublishedAt(),
+                entity.getReopenedAt(),
+                entity.getResultsPublishedAt(),
+                entity.isLocked(),
                 entity.getCreatedBy(),
                 new Timestamp(entity.getCreatedAt()),
                 new Timestamp(entity.getUpdatedAt()));

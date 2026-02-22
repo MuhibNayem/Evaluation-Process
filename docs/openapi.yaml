@@ -17,6 +17,7 @@ tags:
   - name: Audience
   - name: Rule Control Plane
   - name: Dashboard
+  - name: Notifications
 
 security:
   - bearerAuth: []
@@ -235,6 +236,274 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProgressResponse'
 
+  /api/v1/campaigns/{id}/lifecycle/publish:
+    post:
+      tags: [Campaigns]
+      summary: Publish campaign in PDF lifecycle mode
+      description: Admin-only endpoint. Enabled when `features.enable-pdf-lifecycle=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleActionRequest'
+            examples:
+              withReason:
+                value:
+                  reason: Approved by committee
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+              examples:
+                published:
+                  value:
+                    id: c-001
+                    name: Spring 2026 Faculty Evaluation
+                    description: Semester end evaluation cycle
+                    templateId: t-001
+                    templateVersion: 2
+                    status: PUBLISHED_OPEN
+                    startDate: '2026-03-01T00:00:00Z'
+                    endDate: '2026-03-31T23:59:59Z'
+                    scoringMethod: WEIGHTED_AVERAGE
+                    anonymousMode: true
+                    audienceSourceType: INLINE
+                    audienceSourceConfig: {}
+                    assignmentRuleType: ALL_TO_ALL
+                    assignmentRuleConfig: {}
+                    totalAssignments: 120
+                    completedAssignments: 0
+                    completionPercentage: 0
+                    publishedAt: '2026-02-22T08:00:00Z'
+                    reopenedAt: null
+                    resultsPublishedAt: null
+                    locked: true
+                    createdBy: admin-user
+                    createdAt: '2026-02-20T10:00:00Z'
+                    updatedAt: '2026-02-22T08:00:00Z'
+
+  /api/v1/campaigns/{id}/lifecycle/close:
+    post:
+      tags: [Campaigns]
+      summary: Close campaign in PDF lifecycle mode
+      description: Admin-only endpoint. Enabled when `features.enable-pdf-lifecycle=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleActionRequest'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/lifecycle/reopen:
+    post:
+      tags: [Campaigns]
+      summary: Reopen closed campaign in PDF lifecycle mode
+      description: Admin-only endpoint. Enabled when `features.enable-pdf-lifecycle=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleActionRequest'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/lifecycle/publish-results:
+    post:
+      tags: [Campaigns]
+      summary: Publish results for campaign
+      description: Admin-only endpoint. Enabled when `features.enable-pdf-lifecycle=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleActionRequest'
+      responses:
+        '200':
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+
+  /api/v1/campaigns/{id}/lifecycle/impact-preview:
+    post:
+      tags: [Campaigns]
+      summary: Preview lifecycle transition impact
+      description: Admin-only endpoint. Enabled when `features.enable-pdf-lifecycle=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleImpactPreviewRequest'
+            examples:
+              publishResults:
+                value:
+                  action: PUBLISH_RESULTS
+      responses:
+        '200':
+          description: Lifecycle impact preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleImpactPreviewResponse'
+              examples:
+                preview:
+                  value:
+                    campaignId: c-001
+                    action: PUBLISH_RESULTS
+                    totalAssignments: 120
+                    completedAssignments: 96
+                    pendingAssignments: 24
+                    summary: Results become visible to configured viewer roles.
+
+  /api/v1/campaigns/{id}/lifecycle/events:
+    get:
+      tags: [Campaigns]
+      summary: List recent lifecycle events for a campaign
+      description: Admin-only endpoint. Enabled when `features.enable-pdf-lifecycle=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Lifecycle event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CampaignLifecycleEventResponse'
+              examples:
+                events:
+                  value:
+                    - id: 101
+                      campaignId: c-001
+                      fromStatus: CLOSED
+                      toStatus: RESULTS_PUBLISHED
+                      action: PUBLISH_RESULTS
+                      actor: admin-user
+                      reason: Board approved release
+                      metadata:
+                        campaignName: Spring 2026 Faculty Evaluation
+                        completionPercentage: 80.0
+                      createdAt: '2026-02-22T08:15:30Z'
+
+  /api/v1/campaigns/{id}/steps:
+    get:
+      tags: [Campaigns]
+      summary: List campaign steps and windows
+      description: Admin-only endpoint. Enabled when `features.enable-step-windows=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Campaign steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CampaignStepResponse'
+              examples:
+                stepList:
+                  value:
+                    - id: 10
+                      campaignId: c-001
+                      stepType: STUDENT
+                      enabled: true
+                      displayOrder: 1
+                      openAt: '2026-03-01T00:00:00Z'
+                      closeAt: '2026-03-10T23:59:59Z'
+                      lateAllowed: false
+                      lateDays: 0
+                      instructions: Complete student feedback first
+                      notes: Window is strict
+    put:
+      tags: [Campaigns]
+      summary: Replace campaign steps and windows
+      description: Admin-only endpoint. Enabled when `features.enable-step-windows=true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCampaignStepsRequest'
+            examples:
+              replaceSteps:
+                value:
+                  steps:
+                    - stepType: STUDENT
+                      enabled: true
+                      displayOrder: 1
+                      openAt: '2026-03-01T00:00:00Z'
+                      closeAt: '2026-03-10T23:59:59Z'
+                      lateAllowed: false
+                      lateDays: 0
+                      instructions: Complete student feedback first
+                      notes: Window is strict
+                    - stepType: PEER
+                      enabled: true
+                      displayOrder: 2
+                      openAt: '2026-03-11T00:00:00Z'
+                      closeAt: '2026-03-20T23:59:59Z'
+                      lateAllowed: true
+                      lateDays: 2
+                      instructions: Peer review period
+                      notes: null
+      responses:
+        '200':
+          description: Updated campaign steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CampaignStepResponse'
+              examples:
+                updated:
+                  value:
+                    - id: 10
+                      campaignId: c-001
+                      stepType: STUDENT
+                      enabled: true
+                      displayOrder: 1
+                      openAt: '2026-03-01T00:00:00Z'
+                      closeAt: '2026-03-10T23:59:59Z'
+                      lateAllowed: false
+                      lateDays: 0
+                      instructions: Complete student feedback first
+                      notes: Window is strict
+
   /api/v1/campaigns/assignments/me:
     get:
       tags: [Campaigns]
@@ -304,10 +573,581 @@ paths:
               schema:
                 $ref: '#/components/schemas/AssignmentBackfillResponse'
 
+  /api/v1/assignments:
+    get:
+      tags: [Campaigns]
+      summary: List rich assignments (admin)
+      parameters:
+        - in: query
+          name: campaignId
+          schema: { type: string }
+        - in: query
+          name: stepType
+          schema: { type: string }
+        - in: query
+          name: sectionId
+          schema: { type: string }
+        - in: query
+          name: facultyId
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: evaluatorId
+          schema: { type: string }
+        - in: query
+          name: evaluateeId
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: sortBy
+          schema: { type: string, default: updatedAt }
+        - in: query
+          name: sortDir
+          schema: { type: string, default: desc }
+      responses:
+        '200':
+          description: Assignment list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentListResponse'
+    post:
+      tags: [Campaigns]
+      summary: Create rich assignment (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssignmentRequest'
+      responses:
+        '201':
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+        '409':
+          description: Duplicate assignment tuple conflict
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                duplicateAssignment:
+                  value:
+                    type: https://api.evaluationservice.com/errors/duplicate-assignment
+                    title: Duplicate Assignment
+                    status: 409
+                    detail: Duplicate assignment tuple for campaign/evaluator/evaluatee/role
+                    campaignId: c-001
+                    evaluatorId: e-100
+                    evaluateeId: u-200
+                    evaluatorRole: PEER
+                    existingAssignmentId: a-existing
+
+  /api/v1/assignments/{id}:
+    get:
+      tags: [Campaigns]
+      summary: Get assignment by id (admin)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+    put:
+      tags: [Campaigns]
+      summary: Update assignment metadata (admin)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssignmentRequest'
+      responses:
+        '200':
+          description: Assignment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+
+  /api/v1/evaluators/me/dashboard:
+    get:
+      tags: [Campaigns]
+      summary: Evaluator dashboard aggregate
+      responses:
+        '200':
+          description: Evaluator dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluatorDashboardResponse'
+
+  /api/v1/questions-bank/sets:
+    post:
+      tags: [Templates]
+      summary: Create question bank set (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuestionBankSetRequest'
+      responses:
+        '201':
+          description: Created question bank set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionBankSetResponse'
+    get:
+      tags: [Templates]
+      summary: List question bank sets (admin)
+      parameters:
+        - in: query
+          name: tenantId
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: Question bank sets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankSetResponse'
+
+  /api/v1/questions-bank/sets/{setId}/items:
+    post:
+      tags: [Templates]
+      summary: Create question bank item (admin)
+      parameters:
+        - in: path
+          name: setId
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuestionBankItemRequest'
+      responses:
+        '201':
+          description: Created question bank item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionBankItemResponse'
+    get:
+      tags: [Templates]
+      summary: List question bank items in a set (admin)
+      parameters:
+        - in: path
+          name: setId
+          required: true
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: Question bank items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItemResponse'
+
+  /api/v1/questions-bank/items/{itemId}/versions:
+    post:
+      tags: [Templates]
+      summary: Create question item version (admin)
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuestionBankItemVersionRequest'
+      responses:
+        '201':
+          description: Created question item version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionBankItemVersionResponse'
+    get:
+      tags: [Templates]
+      summary: List question item versions (admin)
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: Question item versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItemVersionResponse'
+
+  /api/v1/questions-bank/items/{itemId}/versions/{versionNo}/activate:
+    post:
+      tags: [Templates]
+      summary: Activate question item version (admin)
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: integer, format: int64 }
+        - in: path
+          name: versionNo
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Activated question item version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionBankItemVersionResponse'
+
+  /api/v1/questions-bank/items/{itemId}/versions/compare:
+    get:
+      tags: [Templates]
+      summary: Compare two question item versions (admin)
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: fromVersion
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: toVersion
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Version comparison
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionVersionCompareResponse'
+
+  /api/v1/scoring/preview:
+    post:
+      tags: [Reports]
+      summary: Preview scoring for sample answers (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoringPreviewRequest'
+      responses:
+        '200':
+          description: Scoring preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringPreviewResponse'
+
+  /api/v1/admin/notifications/rules:
+    post:
+      tags: [Notifications]
+      summary: Create notification rule (admin)
+      description: Enabled only when `features.enable-notification-rule-engine=true`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationRuleRequest'
+      responses:
+        '201':
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRuleResponse'
+    get:
+      tags: [Notifications]
+      summary: List notification rules (admin)
+      description: Enabled only when `features.enable-notification-rule-engine=true`.
+      parameters:
+        - in: query
+          name: campaignId
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationRuleResponse'
+
+  /api/v1/admin/notifications/rules/{id}:
+    get:
+      tags: [Notifications]
+      summary: Get notification rule by id (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRuleResponse'
+    put:
+      tags: [Notifications]
+      summary: Update notification rule (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationRuleRequest'
+      responses:
+        '200':
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRuleResponse'
+    delete:
+      tags: [Notifications]
+      summary: Delete notification rule (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Deleted
+
+  /api/v1/admin/notifications/templates:
+    post:
+      tags: [Notifications]
+      summary: Create notification template (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationTemplateRequest'
+      responses:
+        '201':
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplateResponse'
+    get:
+      tags: [Notifications]
+      summary: List notification templates (admin)
+      parameters:
+        - in: query
+          name: campaignId
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationTemplateResponse'
+
+  /api/v1/admin/notifications/templates/{id}:
+    get:
+      tags: [Notifications]
+      summary: Get notification template by id (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplateResponse'
+    put:
+      tags: [Notifications]
+      summary: Update notification template (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationTemplateRequest'
+      responses:
+        '200':
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplateResponse'
+    delete:
+      tags: [Notifications]
+      summary: Delete notification template (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Deleted
+
+  /api/v1/admin/notifications/templates/{id}/test-render:
+    post:
+      tags: [Notifications]
+      summary: Render notification template body with variables (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestNotificationTemplateRequest'
+      responses:
+        '200':
+          description: Rendered template body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRenderResponse'
+
+  /api/v1/admin/notifications/deliveries:
+    get:
+      tags: [Notifications]
+      summary: List notification deliveries (admin)
+      parameters:
+        - in: query
+          name: campaignId
+          schema:
+            type: string
+        - in: query
+          name: ruleId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Delivery list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationDeliveryResponse'
+
+  /api/v1/admin/notifications/deliveries/{id}/retry:
+    post:
+      tags: [Notifications]
+      summary: Retry failed notification delivery (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Delivery after retry attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDeliveryResponse'
+
   /api/v1/evaluations:
     post:
       tags: [Evaluations]
       summary: Submit evaluation
+      description: |
+        Submits and scores an evaluation. When `features.enable-step-windows=true`,
+        the assignment's step window policy is enforced (enabled step, open/close window,
+        optional late window).
       requestBody:
         required: true
         content:
@@ -321,6 +1161,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationResponse'
+
+  /api/v1/evaluations/validate-submit:
+    post:
+      tags: [Evaluations]
+      summary: Validate submission payload before submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitEvaluationRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionValidationResponse'
 
   /api/v1/evaluations/{id}:
     get:
@@ -353,6 +1211,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationResponse'
+
+  /api/v1/evaluations/{id}/receipt:
+    get:
+      tags: [Evaluations]
+      summary: Get submission receipt by evaluation id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Submission receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionReceiptResponse'
+
+  /api/v1/evaluations/{id}/admin-detail:
+    get:
+      tags: [Evaluations]
+      summary: Admin submission detail projection
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Admin submission detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSubmissionDetailResponse'
 
   /api/v1/evaluations/campaign/{campaignId}:
     get:
@@ -431,6 +1317,16 @@ paths:
       responses:
         '200':
           description: Invalidated
+
+  /api/v1/evaluations/{id}/reopen:
+    post:
+      tags: [Evaluations]
+      summary: Reopen evaluation for revision (admin)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Reopened
 
   /api/v1/templates:
     post:
@@ -1477,6 +2373,100 @@ components:
           type: number
           format: double
 
+    LifecycleImpactPreviewRequest:
+      type: object
+      properties:
+        action: { type: string }
+
+    LifecycleActionRequest:
+      type: object
+      properties:
+        reason: { type: string, nullable: true }
+
+    LifecycleImpactPreviewResponse:
+      type: object
+      properties:
+        campaignId: { type: string }
+        action: { type: string }
+        totalAssignments: { type: integer, format: int64 }
+        completedAssignments: { type: integer, format: int64 }
+        pendingAssignments: { type: integer, format: int64 }
+        summary: { type: string }
+
+    UpdateCampaignStepsRequest:
+      type: object
+      required: [steps]
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampaignStepUpsertItem'
+
+    CreateAssignmentRequest:
+      type: object
+      required: [campaignId, evaluatorId, evaluateeId, evaluatorRole]
+      properties:
+        campaignId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        evaluatorRole: { type: string }
+        stepType: { type: string, nullable: true }
+        sectionId: { type: string, nullable: true }
+        facultyId: { type: string, nullable: true }
+        anonymityMode: { type: string, nullable: true }
+        status: { type: string, nullable: true }
+
+    UpdateAssignmentRequest:
+      type: object
+      properties:
+        stepType: { type: string, nullable: true }
+        sectionId: { type: string, nullable: true }
+        facultyId: { type: string, nullable: true }
+        anonymityMode: { type: string, nullable: true }
+        status: { type: string, nullable: true }
+
+    CampaignStepUpsertItem:
+      type: object
+      properties:
+        stepType: { type: string }
+        enabled: { type: boolean }
+        displayOrder: { type: integer }
+        openAt: { type: string, format: date-time, nullable: true }
+        closeAt: { type: string, format: date-time, nullable: true }
+        lateAllowed: { type: boolean }
+        lateDays: { type: integer }
+        instructions: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    CampaignStepResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        campaignId: { type: string }
+        stepType: { type: string }
+        enabled: { type: boolean }
+        displayOrder: { type: integer }
+        openAt: { type: string, format: date-time, nullable: true }
+        closeAt: { type: string, format: date-time, nullable: true }
+        lateAllowed: { type: boolean }
+        lateDays: { type: integer }
+        instructions: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    CampaignLifecycleEventResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        campaignId: { type: string }
+        fromStatus: { type: string, nullable: true }
+        toStatus: { type: string }
+        action: { type: string }
+        actor: { type: string }
+        reason: { type: string, nullable: true }
+        metadata:
+          $ref: '#/components/schemas/AnyObject'
+        createdAt: { type: string, format: date-time }
+
     CampaignResponse:
       type: object
       properties:
@@ -1487,7 +2477,7 @@ components:
         templateVersion: { type: integer }
         status:
           type: string
-          enum: [DRAFT, SCHEDULED, ACTIVE, CLOSED, ARCHIVED]
+          enum: [DRAFT, SCHEDULED, ACTIVE, PUBLISHED_OPEN, CLOSED, RESULTS_PUBLISHED, ARCHIVED]
         startDate: { type: string, format: date-time }
         endDate: { type: string, format: date-time }
         scoringMethod:
@@ -1503,6 +2493,10 @@ components:
         totalAssignments: { type: integer }
         completedAssignments: { type: integer, format: int64 }
         completionPercentage: { type: number, format: double }
+        publishedAt: { type: string, format: date-time, nullable: true }
+        reopenedAt: { type: string, format: date-time, nullable: true }
+        resultsPublishedAt: { type: string, format: date-time, nullable: true }
+        locked: { type: boolean }
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -1562,6 +2556,37 @@ components:
         createdAt: { type: string, format: date-time }
         submittedAt: { type: string, format: date-time, nullable: true }
 
+    SubmissionValidationResponse:
+      type: object
+      properties:
+        valid: { type: boolean }
+        issueCount: { type: integer }
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmissionValidationIssue'
+
+    SubmissionValidationIssue:
+      type: object
+      properties:
+        questionId: { type: string, nullable: true }
+        code: { type: string }
+        message: { type: string }
+
+    SubmissionReceiptResponse:
+      type: object
+      properties:
+        evaluationId: { type: string }
+        campaignId: { type: string }
+        assignmentId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, SCORING, COMPLETED, FLAGGED, INVALIDATED]
+        submittedAt: { type: string, format: date-time, nullable: true }
+        totalScore: { type: number, format: double, nullable: true }
+
     AnswerResponse:
       type: object
       properties:
@@ -1586,6 +2611,71 @@ components:
         status: { type: string }
         evaluationId: { type: string, nullable: true }
 
+    AssignmentResponse:
+      type: object
+      properties:
+        id: { type: string }
+        campaignId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        evaluatorRole: { type: string }
+        completed: { type: boolean }
+        evaluationId: { type: string, nullable: true }
+        stepType: { type: string, nullable: true }
+        sectionId: { type: string, nullable: true }
+        facultyId: { type: string, nullable: true }
+        anonymityMode: { type: string, nullable: true }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AssignmentListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentResponse'
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+        totalPages: { type: integer }
+
+    EvaluatorDashboardResponse:
+      type: object
+      properties:
+        evaluatorId: { type: string }
+        assignedCount: { type: integer, format: int64 }
+        completedCount: { type: integer, format: int64 }
+        pendingCount: { type: integer, format: int64 }
+        draftCount: { type: integer, format: int64 }
+        submittedCount: { type: integer, format: int64 }
+        completionPercentage: { type: number, format: double }
+
+    AdminSubmissionDetailResponse:
+      type: object
+      properties:
+        evaluationId: { type: string }
+        evaluationStatus:
+          type: string
+          enum: [DRAFT, SUBMITTED, SCORING, COMPLETED, FLAGGED, INVALIDATED]
+        submittedAt: { type: string, format: date-time, nullable: true }
+        totalScore: { type: number, format: double, nullable: true }
+        campaignId: { type: string }
+        campaignName: { type: string }
+        campaignStatus:
+          type: string
+          enum: [DRAFT, SCHEDULED, ACTIVE, PUBLISHED_OPEN, CLOSED, RESULTS_PUBLISHED, ARCHIVED]
+        assignmentId: { type: string }
+        evaluatorId: { type: string }
+        evaluateeId: { type: string }
+        evaluatorRole: { type: string }
+        stepType: { type: string, nullable: true }
+        sectionId: { type: string, nullable: true }
+        facultyId: { type: string, nullable: true }
+        anonymityMode: { type: string, nullable: true }
+        assignmentStatus: { type: string }
+
     CreateTemplateRequest:
       type: object
       required: [name]
@@ -1601,6 +2691,53 @@ components:
           items:
             $ref: '#/components/schemas/SectionRequest'
         customFormula: { type: string }
+
+    CreateQuestionBankSetRequest:
+      type: object
+      required: [name]
+      properties:
+        tenantId: { type: string, nullable: true }
+        name: { type: string }
+        versionTag: { type: string, nullable: true }
+        owner: { type: string, nullable: true }
+
+    CreateQuestionBankItemRequest:
+      type: object
+      required: [stableKey, defaultType, defaultMarks]
+      properties:
+        stableKey: { type: string }
+        contextType: { type: string, nullable: true }
+        categoryName: { type: string, nullable: true }
+        defaultType: { type: string }
+        defaultMarks: { type: number, format: double }
+
+    CreateQuestionBankItemVersionRequest:
+      type: object
+      required: [status, questionText, questionType, marks]
+      properties:
+        status: { type: string }
+        changeSummary: { type: string, nullable: true }
+        questionText: { type: string }
+        questionType: { type: string }
+        marks: { type: number, format: double }
+        remarksMandatory: { type: boolean }
+        metadata:
+          $ref: '#/components/schemas/AnyObject'
+
+    ScoringPreviewRequest:
+      type: object
+      required: [templateId, answers]
+      properties:
+        templateId: { type: string }
+        scoringMethodOverride:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
+          nullable: true
+        customFormulaOverride: { type: string, nullable: true }
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerRequest'
 
     UpdateTemplateRequest:
       type: object
@@ -1683,6 +2820,92 @@ components:
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    QuestionBankSetResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tenantId: { type: string, nullable: true }
+        name: { type: string }
+        versionTag: { type: string, nullable: true }
+        owner: { type: string, nullable: true }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    QuestionBankItemResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        setId: { type: integer, format: int64 }
+        stableKey: { type: string }
+        contextType: { type: string, nullable: true }
+        categoryName: { type: string, nullable: true }
+        defaultType: { type: string }
+        defaultMarks: { type: number, format: double }
+        activeVersionNo: { type: integer }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    QuestionBankItemVersionResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        questionItemId: { type: integer, format: int64 }
+        versionNo: { type: integer }
+        status: { type: string }
+        changeSummary: { type: string, nullable: true }
+        questionText: { type: string }
+        questionType: { type: string }
+        marks: { type: number, format: double }
+        remarksMandatory: { type: boolean }
+        metadata:
+          $ref: '#/components/schemas/AnyObject'
+        effectiveFrom: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    QuestionVersionCompareResponse:
+      type: object
+      properties:
+        questionItemId: { type: integer, format: int64 }
+        fromVersion: { type: integer }
+        toVersion: { type: integer }
+        diffs:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionVersionDiff'
+
+    QuestionVersionDiff:
+      type: object
+      properties:
+        field: { type: string }
+        fromValue: {}
+        toValue: {}
+
+    ScoringPreviewResponse:
+      type: object
+      properties:
+        templateId: { type: string }
+        scoringMethod:
+          type: string
+          enum: [WEIGHTED_AVERAGE, SIMPLE_AVERAGE, MEDIAN, PERCENTILE_RANK, CUSTOM_FORMULA]
+        totalScore: { type: number, format: double }
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoringPreviewSection'
+
+    ScoringPreviewSection:
+      type: object
+      properties:
+        sectionId: { type: string }
+        sectionTitle: { type: string }
+        score: { type: number, format: double }
+        maxPossible: { type: number, format: double }
+        answeredQuestions: { type: integer }
+        totalQuestions: { type: integer }
 
     SectionResponse:
       type: object
@@ -2126,3 +3349,147 @@ components:
         description: { type: string }
         timestamp: { type: string, format: date-time }
         type: { type: string }
+
+    CreateNotificationRuleRequest:
+      type: object
+      required: [campaignId, ruleCode, triggerType, audience, channel]
+      properties:
+        campaignId: { type: string }
+        ruleCode: { type: string }
+        triggerType:
+          type: string
+          enum: [EVALUATION_SUBMITTED, CAMPAIGN_CLOSED, SCHEDULED]
+        audience:
+          type: string
+          enum: [EVALUATOR, EVALUATEE, CAMPAIGN_OWNER, CUSTOM]
+        channel:
+          type: string
+          enum: [IN_APP, EMAIL, WEBHOOK, SMS]
+        scheduleExpr: { type: string, nullable: true }
+        enabled: { type: boolean }
+        config:
+          $ref: '#/components/schemas/AnyObject'
+
+    UpdateNotificationRuleRequest:
+      type: object
+      properties:
+        triggerType:
+          type: string
+          enum: [EVALUATION_SUBMITTED, CAMPAIGN_CLOSED, SCHEDULED]
+          nullable: true
+        audience:
+          type: string
+          enum: [EVALUATOR, EVALUATEE, CAMPAIGN_OWNER, CUSTOM]
+          nullable: true
+        channel:
+          type: string
+          enum: [IN_APP, EMAIL, WEBHOOK, SMS]
+          nullable: true
+        scheduleExpr: { type: string, nullable: true }
+        enabled: { type: boolean, nullable: true }
+        config:
+          $ref: '#/components/schemas/AnyObject'
+
+    NotificationRuleResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        campaignId: { type: string }
+        ruleCode: { type: string }
+        triggerType: { type: string }
+        audience: { type: string }
+        channel: { type: string }
+        scheduleExpr: { type: string, nullable: true }
+        enabled: { type: boolean }
+        config:
+          $ref: '#/components/schemas/AnyObject'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateNotificationTemplateRequest:
+      type: object
+      required: [templateCode, name, channel, body]
+      properties:
+        campaignId: { type: string, nullable: true }
+        templateCode: { type: string }
+        name: { type: string }
+        channel:
+          type: string
+          enum: [IN_APP, EMAIL, WEBHOOK, SMS]
+        subject: { type: string, nullable: true }
+        body: { type: string }
+        requiredVariables:
+          type: array
+          items: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          nullable: true
+
+    UpdateNotificationTemplateRequest:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        channel:
+          type: string
+          enum: [IN_APP, EMAIL, WEBHOOK, SMS]
+          nullable: true
+        subject: { type: string, nullable: true }
+        body: { type: string, nullable: true }
+        requiredVariables:
+          type: array
+          items: { type: string }
+          nullable: true
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          nullable: true
+
+    TestNotificationTemplateRequest:
+      type: object
+      required: [recipient]
+      properties:
+        recipient: { type: string }
+        variables:
+          $ref: '#/components/schemas/AnyObject'
+
+    NotificationTemplateResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        campaignId: { type: string, nullable: true }
+        templateCode: { type: string }
+        name: { type: string }
+        channel: { type: string }
+        subject: { type: string, nullable: true }
+        body: { type: string }
+        requiredVariables:
+          type: array
+          items: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    NotificationDeliveryResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        campaignId: { type: string, nullable: true }
+        ruleId: { type: integer, format: int64, nullable: true }
+        templateId: { type: integer, format: int64, nullable: true }
+        recipient: { type: string }
+        channel: { type: string }
+        status: { type: string }
+        errorCode: { type: string, nullable: true }
+        errorMessage: { type: string, nullable: true }
+        payload:
+          $ref: '#/components/schemas/AnyObject'
+        sentAt: { type: string, format: date-time, nullable: true }
+        deliveredAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    TemplateRenderResponse:
+      type: object
+      properties:
+        recipient: { type: string }
+        renderedBody: { type: string }

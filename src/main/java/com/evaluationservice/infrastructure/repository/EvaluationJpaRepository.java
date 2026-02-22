@@ -18,6 +18,8 @@ public interface EvaluationJpaRepository extends JpaRepository<EvaluationEntity,
 
     Page<EvaluationEntity> findByEvaluateeId(String evaluateeId, Pageable pageable);
 
+    List<EvaluationEntity> findByEvaluatorId(String evaluatorId);
+
     List<EvaluationEntity> findByCampaignIdAndEvaluateeIdAndStatus(String campaignId, String evaluateeId,
             String status);
 
